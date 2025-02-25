@@ -14,6 +14,7 @@ import com.example.pandatribe.repositories.interfaces.EveTypesRepository;
 import com.example.pandatribe.services.contracts.MarketService;
 import com.example.pandatribe.services.contracts.MaterialService;
 import com.example.pandatribe.utils.Helper;
+import jakarta.persistence.criteria.CriteriaBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -39,12 +40,12 @@ public class MaterialsServiceImpl implements MaterialService {
 
     @Override
     @Transactional
-    public List<BlueprintResult> getMaterialsByActivity(Integer blueprintId, Integer quantity, Integer discountBR, Integer materialEfficiency, Integer discountB, Double security, Integer blueprintCount, Integer regionId) {
+    public List<BlueprintResult> getMaterialsByActivity(Integer blueprintId, Integer quantity, Integer discountBR, Integer materialEfficiency, Integer discountB, Double security, Integer blueprintCount, Integer regionId, Integer initialTier) {
         List<Material> materials = materialBlueprintRepository.findMaterialsByActivity(blueprintId);
-        return getSimpleMaterials(materials, quantity, discountBR, materialEfficiency, discountB, security, blueprintCount, regionId);
+        return getSimpleMaterials(materials, quantity, discountBR, materialEfficiency, discountB, security, blueprintCount, regionId, initialTier);
     }
 
-    private List<BlueprintResult> getSimpleMaterials(List<Material> materials, Integer quantity, Integer discountBR, Integer materialEfficiency, Integer discountB, Double security, Integer blueprintCount, Integer regionId) {
+    private List<BlueprintResult> getSimpleMaterials(List<Material> materials, Integer quantity, Integer discountBR, Integer materialEfficiency, Integer discountB, Double security, Integer blueprintCount, Integer regionId, Integer initialTier) {
         List<BlueprintResult> materialList = new ArrayList<>();
         BuildingBonus buildingBonus = helper.getBuildingBonus(discountB);
         RigBonus rigBonus = helper.getRigBonus(discountBR, discountB);
@@ -66,11 +67,13 @@ public class MaterialsServiceImpl implements MaterialService {
                     .id(eveType.get().getTypeId())
                     .name(eveType.get().getTypeName())
                     .quantity(matQuantity)
-               //     .excessMaterials(Objects.nonNull(blueprintActivity) ? Math.abs(craftQuantity*jobsCount-matQuantity) : 0)
+                    .excessMaterials(Objects.nonNull(blueprintActivity) ? Math.abs(craftQuantity*jobsCount-matQuantity) : 0)
                     .craftQuantity(craftQuantity)
                     .icon(helper.generateIconLink(eveType.get().getTypeId(),32))
                     .sellPrice(marketService.getItemSellOrderPrice(LOCATION_ID, marketItemPriceData))
-                    .volume((Objects.nonNull(volume) ? volume : eveType.get().getVolume()))
+                    .totalSellPrice(marketService.getItemSellOrderPrice(LOCATION_ID, marketItemPriceData).multiply(BigDecimal.valueOf(matQuantity)))
+                    .totalVolume((Objects.nonNull(volume) ? volume : eveType.get().getVolume()) * matQuantity)
+                    .volume(Objects.nonNull(volume) ? volume : eveType.get().getVolume())
                     .activityId(Optional.ofNullable(blueprintActivity).map(BlueprintActivity::getActivityId).orElse(0))
                     .adjustedPrice(marketPriceData.stream()
                             .filter(m-> m.getTypeId().equals(eveType.get().getTypeId()))
@@ -78,6 +81,7 @@ public class MaterialsServiceImpl implements MaterialService {
                             .map(MarketPriceData::getAdjustedPrice)
                             .orElse(BigDecimal.ZERO).multiply(BigDecimal.valueOf(material.getQuantity())))
                     .isFuel(eveType.get().getTypeName().contains("Fuel Block"))
+                    .tier(initialTier+1)
                     .jobsCount(jobsCount);
 
             if (Objects.isNull(blueprintActivity)) {
