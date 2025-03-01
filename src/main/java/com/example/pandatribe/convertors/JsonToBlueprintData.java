@@ -13,9 +13,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Converter(autoApply = true)
-public class JsonToBlueprintResponse implements AttributeConverter<List<BlueprintResult>, String> {
+public class JsonToBlueprintData implements AttributeConverter<List<BlueprintResult>, String> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(JsonToBlueprintResponse.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(JsonToBlueprintData.class);
     private final ObjectMapper mapper = new ObjectMapper();
 
     @Override

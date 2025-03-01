@@ -10,7 +10,7 @@ import java.util.List;
 
 public interface BlueprintService {
     BlueprintData getInitialBlueprintData(BlueprintRequest searchDto);
-  //  BlueprintResult getBlueprintData(BlueprintRequest searchDto);
+    BlueprintData massUpdateMaterials(List<BlueprintRequest> requests);
     BlueprintData updateSubMaterials(BlueprintRequest subMaterialsRequest);
     GetBlueprintsResult getEveBlueprints();
     List<SystemName> getEveSystems();

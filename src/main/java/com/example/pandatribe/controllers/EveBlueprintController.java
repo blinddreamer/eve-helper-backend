@@ -29,7 +29,6 @@ public class EveBlueprintController {
     private final BlueprintService blueprintService;
 
     @PostMapping("type")
-    @Cacheable("cacheCalculator")
     public ResponseEntity<?> getEveType(@RequestBody BlueprintRequest blueprintRequest){
         LOGGER.info("REQUEST for blueprint: ");
         jsonLogger.println(blueprintRequest);
@@ -51,6 +50,24 @@ public class EveBlueprintController {
             LOGGER.info("Submaterials request {} not found", subMaterialsRequest.getRequestId());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Request not found");
         }
+        LOGGER.info("Submaterials request {} updated", subMaterialsRequest.getRequestId());
+        jsonLogger.println(blueprintDto);
+        return ResponseEntity.ok(blueprintDto);
+    }
+
+    @PostMapping("mass-update-type")
+    public ResponseEntity<?> massUpdateSubMaterials(@RequestBody List<BlueprintRequest> subMaterialsRequest){
+        LOGGER.info("REQUEST for submaterials: ");
+        if(Objects.isNull(subMaterialsRequest) || subMaterialsRequest.isEmpty()){
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Request cannot be empty");
+        }
+        jsonLogger.println(subMaterialsRequest);
+        BlueprintData blueprintDto = blueprintService.massUpdateMaterials(subMaterialsRequest);
+        if(Objects.isNull(blueprintDto)){
+            LOGGER.info("Submaterials request {} not found", subMaterialsRequest.get(0).getRequestId());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Request not found");
+        }
+        LOGGER.info("Submaterials request {} updated", subMaterialsRequest.get(0).getRequestId());
         jsonLogger.println(blueprintDto);
         return ResponseEntity.ok(blueprintDto);
     }

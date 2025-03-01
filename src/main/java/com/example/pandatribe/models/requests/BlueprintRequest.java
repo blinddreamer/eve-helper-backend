@@ -2,12 +2,9 @@ package com.example.pandatribe.models.requests;
 
 import lombok.*;
 
-import java.util.List;
-
-@Getter
-@Setter
 @Builder
 @AllArgsConstructor
+@Data
 public class BlueprintRequest {
     private String blueprintName;
     private Integer runs;
@@ -20,6 +17,19 @@ public class BlueprintRequest {
     private Integer regionId;
     private Boolean init;
     private String requestId;
-    private List<Integer> subMaterialIds;
     private Integer tier;
+
+    public String cacheKey() {
+        return String.join("|",
+                blueprintName,
+                String.valueOf(runs),
+                String.valueOf(count),
+                system,
+                String.valueOf(blueprintMe),
+                String.valueOf(facilityTax),
+                String.valueOf(buildingRig),
+                String.valueOf(building),
+                String.valueOf(regionId)
+        );
+    }
 }

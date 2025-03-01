@@ -1,6 +1,7 @@
 package com.example.pandatribe.models;
 
-import com.example.pandatribe.convertors.JsonToBlueprintResponse;
+import com.example.pandatribe.convertors.JsonToBlueprintData;
+import com.example.pandatribe.convertors.JsonToBlueprintInfo;
 import com.example.pandatribe.models.results.BlueprintResult;
 import jakarta.persistence.*;
 import lombok.*;
@@ -12,6 +13,7 @@ import java.util.List;
 @Entity
 @RequiredArgsConstructor
 @Builder
+@With
 @Table(name = "search_requests")
 @AllArgsConstructor
 public class BlueprintData {
@@ -19,8 +21,12 @@ public class BlueprintData {
     @Column(name="id")
     private String id;
 
+//    @Column(name = "blueprint_info",columnDefinition = "jsonb")
+//    @Convert(converter = JsonToBlueprintInfo.class)
+//    private BlueprintResult initialBlueprint;
+
     @Column(name = "blueprint_data",columnDefinition = "jsonb")
-    @Convert(converter = JsonToBlueprintResponse.class)
+    @Convert(converter = JsonToBlueprintData.class)
     private List<BlueprintResult> blueprintResult;
 
     @Column(name="creation_date")
