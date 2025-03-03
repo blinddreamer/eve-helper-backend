@@ -27,6 +27,7 @@ public class MarketServiceImpl implements MarketService {
 
 
     @Override
+    @Cacheable(value = "cacheItemMarketPrice")
     public List<ItemPrice> getItemMarketPrice(Integer typeId, Integer regionId , String orderType) {
         List<ItemPrice> itemPriceList = eveInteractor.getItemMarketPrice(regionId,DATA_SOURCE,orderType,typeId) ;
         LOGGER.info("Item {} prices obtained {}", typeId, !itemPriceList.isEmpty());

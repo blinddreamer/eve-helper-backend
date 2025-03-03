@@ -46,6 +46,20 @@ public class MaterialsServiceImpl implements MaterialService {
         return getSimpleMaterials(materials, quantity, discountBR, materialEfficiency, discountB, security, blueprintCount, regionId, initialTier);
     }
 
+    @Override
+    public Integer getBlueprintComplexity(Integer blueprintId) {
+        List<Material> materials = materialBlueprintRepository.findMaterialsByActivity(blueprintId);
+
+        return materials.stream()
+                .map(mat-> eveCustomRepository.getBluePrintInfoByProduct(mat.getBlueprintTypeId().getMaterialTypeId()))
+                .filter(Objects::nonNull)
+                .map(BlueprintActivity::getActivityId)
+                .filter(activity -> activity == 1 || activity == 11)
+                .findFirst()
+                .map(activity -> activity == 1 ? 3 : 2)
+                .orElse(1);
+    }
+
     private List<MaterialInfo> getSimpleMaterials(List<Material> materials, Integer quantity, Integer discountBR, Integer materialEfficiency, Integer discountB, Double security, Integer blueprintCount, Integer regionId, Integer initialTier) {
         List<MaterialInfo> materialList = new ArrayList<>();
         BuildingBonus buildingBonus = helper.getBuildingBonus(discountB);

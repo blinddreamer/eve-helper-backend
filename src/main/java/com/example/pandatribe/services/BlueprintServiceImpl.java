@@ -32,6 +32,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -75,12 +76,12 @@ public class BlueprintServiceImpl implements BlueprintService {
         blueprintResults.add(initialBlueprint);
         return blueprintDataRepository.saveAndFlush(
                 BlueprintData.builder().id(UUID.randomUUID().toString())
-                //        .initialBlueprint(initialBlueprint)
+                        //        .initialBlueprint(initialBlueprint)
                         .blueprintResult(blueprintResults)
                         .creationDate(LocalDate.now()).build());
     }
 
-    public BlueprintData massUpdateMaterials(List<BlueprintRequest> requests){
+    public BlueprintData massUpdateMaterials(List<BlueprintRequest> requests) {
         BlueprintData blueprintData = blueprintDataRepository.findById(requests.get(0).getRequestId()).orElse(null);
         if (blueprintData == null) {
             return null;
@@ -100,10 +101,12 @@ public class BlueprintServiceImpl implements BlueprintService {
 
     @Override
     public GetBlueprintsResult getEveBlueprints() {
-        List<Blueprint> blueprints = eveCustomRepository.getBlueprints().stream().filter(bp -> Objects.nonNull(bp.getBlueprint())).toList();
+        List<Blueprint> blueprints = eveCustomRepository.getBlueprints();
         LOGGER.info("Blueprints loaded - {}", !blueprints.isEmpty());
+
         return GetBlueprintsResult.builder()
-                .blueprints(blueprints)
+                .blueprints(blueprints.stream().map(bp ->
+                        bp.withComplexity(materialsService.getBlueprintComplexity(bp.getBpId()))).toList())
                 .build();
     }
 
@@ -174,9 +177,9 @@ public class BlueprintServiceImpl implements BlueprintService {
             }
             Integer volume = eveCustomRepository.getVolume(eveType.get().getTypeId());
             Integer matBlueprintId = blueprintActivity.getBlueprintId();
-            Integer craftcount = (int) Math.ceil((double) runs / blueprintActivity.getCraftQuantity());
+            Integer craftCount = (int) Math.ceil((double) runs / blueprintActivity.getCraftQuantity());
             Double craftQuantity = Optional.of(blueprintActivity).map(b -> Double.parseDouble(b.getCraftQuantity().toString())).orElse(1.0);
-            List<MaterialInfo> materialsList = materialsService.getMaterialsByActivity(matBlueprintId, craftcount, rigDiscount, blueprintMaterialEfficiency, buildingDiscount, systemInfo.getSecurity(), count, regionId, tier);
+            List<MaterialInfo> materialsList = materialsService.getMaterialsByActivity(matBlueprintId, craftCount, rigDiscount, blueprintMaterialEfficiency, buildingDiscount, systemInfo.getSecurity(), count, regionId, tier);
             String activity = blueprintActivity.getActivityId().equals(REACTION_ACTIVITY_ID) ? REACTION : MANUFACTURING;
             BigDecimal industryCosts = calculateIndustryTaxes(facilityTax, systemInfo.getSystemId(), materialsList, activity, buildingDiscount, count);
             BigDecimal price = marketService
@@ -193,7 +196,7 @@ public class BlueprintServiceImpl implements BlueprintService {
                     .materialsList(materialsList)
                     .craftPrice(materialsList.stream().map(materialInfo -> materialInfo.getPrice().multiply(BigDecimal.valueOf(materialInfo.getQuantity()))).reduce(BigDecimal.ZERO, BigDecimal::add).add(industryCosts))
                     .industryCosts(industryCosts)
-                    .excessMaterials( Math.abs(craftQuantity-(runs*count)))
+                    .excessMaterials(Math.abs(craftQuantity - (runs * count)))
                     .craftQuantity(craftQuantity)
                     .tier(tier)
                     .isFuel(blueprintName.contains("Fuel Block"))
@@ -216,30 +219,65 @@ public class BlueprintServiceImpl implements BlueprintService {
         Map<String, Integer> initialQuantities = new HashMap<>();
         List<BlueprintResult> originalData = blueprintData.getBlueprintResult();
         blueprintData.getBlueprintResult().forEach(result -> {
-            Integer quant = calculateQuantity(originalData, result.getName());
-            initialQuantities.put(result.getName(), quant);
+            //Integer quant = calculateQuantity(originalData, result.getName());
+            initialQuantities.put(result.getName(), result.getQuantity());
         });
-        BlueprintResult alreadyExistingData = blueprintData.getBlueprintResult().stream().filter(mat-> mat.getName().equals(subMaterialsRequest.getBlueprintName())).findFirst().orElse(null);
+        BlueprintResult alreadyExistingData = blueprintData.getBlueprintResult().stream().filter(mat -> mat.getName().equals(subMaterialsRequest.getBlueprintName())).findFirst().orElse(null);
         if (Objects.nonNull(alreadyExistingData)) {
             List<BlueprintResult> tempList = new ArrayList<>();
             alreadyExistingData.setSelectedForCraft(!alreadyExistingData.getSelectedForCraft());
-            originalData.forEach(mat-> tempList.add(updateNeededMaterials(originalData, mat, initialQuantities)));
+            adjustSelectedItems(originalData, alreadyExistingData);
+            tempList.add(originalData.get(0));
+            originalData.stream().skip(1).forEach(mat -> tempList.add(updateNeededMaterials(originalData, mat, initialQuantities)));
+            blueprintData = blueprintData.withBlueprintResult(tempList);
+            BlueprintResult initialBlueprint = tempList.get(0);
+            BigDecimal price = recalculateMasterCraftingPrice(blueprintData).add(initialBlueprint.getIndustryCosts());
+            initialBlueprint.setCraftPrice(price);
             return blueprintData.withBlueprintResult(tempList);
         } else {
 
             List<BlueprintResult> newData = updateList(blueprintData.getBlueprintResult(), subMaterialsRequest, initialQuantities);
-            newData.get(0).setCraftPrice(recalculateMasterCraftingPrice(blueprintData));
+//            newData.get(0).setCraftPrice(recalculateMasterCraftingPrice(blueprintData).add(newData.get(0).getIndustryCosts()));
+            BlueprintResult initialBlueprint = newData.get(0);
+            BigDecimal price = recalculateMasterCraftingPrice(blueprintData).add(initialBlueprint.getIndustryCosts());
+            initialBlueprint.setCraftPrice(price);
             return blueprintData.withBlueprintResult(newData);
         }
     }
-    private BigDecimal recalculateMasterCraftingPrice(BlueprintData blueprintData){
-     return    blueprintData.getBlueprintResult().stream().filter(r-> r.getTier()>0)
-                .map(r-> {
-                    if(Boolean.TRUE.equals(r.getSelectedForCraft())){
-                        return r.getIndustryCosts();
+
+    private BigDecimal recalculateMasterCraftingPrice(BlueprintData blueprintData) {
+
+        List<MaterialInfo> initialMatList = blueprintData.getBlueprintResult().get(0).getMaterialsList();
+        List<BlueprintResult> selectedForCraftList = blueprintData.getBlueprintResult();
+        return initialMatList.stream().map(mat -> {
+                    BlueprintResult existingMat = selectedForCraftList.stream().filter(bp -> bp.getName().equals(mat.getName())).findFirst().orElse(null);
+                    if (Objects.nonNull(existingMat)) {
+                        if (Boolean.TRUE.equals(existingMat.getSelectedForCraft())) {
+                            return recalculateSubMaterialsCraftingPrices(existingMat.getMaterialsList(), selectedForCraftList).add(existingMat.getIndustryCosts());
+                        } else {
+                            return mat.getPrice().multiply(BigDecimal.valueOf(mat.getQuantity()));
+                        }
+                    } else {
+                        return mat.getPrice().multiply(BigDecimal.valueOf(calculateQuantity(selectedForCraftList, mat.getName())));
                     }
-                    return r.getTotalSellPrice();
-                }).reduce(BigDecimal.ZERO, BigDecimal::add);
+                })
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal recalculateSubMaterialsCraftingPrices(List<MaterialInfo> materialsList, List<BlueprintResult> selectedForCraftList) {
+        return materialsList.stream().map(mat -> {
+                    BlueprintResult existingMat = selectedForCraftList.stream().filter(bp -> bp.getName().equals(mat.getName())).findFirst().orElse(null);
+                    if (Objects.nonNull(existingMat)) {
+                        if (Boolean.TRUE.equals(existingMat.getSelectedForCraft())) {
+                            return recalculateSubMaterialsCraftingPrices(existingMat.getMaterialsList(), selectedForCraftList).add(existingMat.getIndustryCosts());
+                        } else {
+                            return mat.getPrice().multiply(BigDecimal.valueOf(mat.getQuantity()));
+                        }
+                    } else {
+                        return mat.getPrice().multiply(BigDecimal.valueOf(mat.getQuantity()));
+                    }
+                })
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private List<BlueprintResult> updateList(List<BlueprintResult> blueprintDataResult, BlueprintRequest subMaterialsRequest,
@@ -259,22 +297,75 @@ public class BlueprintServiceImpl implements BlueprintService {
                 .building(subMaterialsRequest.getBuilding())
                 .build());
         blueprintDataResult.add(result);
-        blueprintDataResult.forEach(mat-> tempList.add(updateNeededMaterials(blueprintDataResult, mat, initialQuantities)));
+        tempList.add(blueprintDataResult.get(0));
+        List<BlueprintResult> temp = new ArrayList<>(blueprintDataResult);
+        blueprintDataResult.stream().skip(1).forEach(mat -> tempList.add(updateNeededMaterials(blueprintDataResult, mat, initialQuantities)));
         return tempList;
     }
 
-    private Integer calculateQuantity(List<BlueprintResult> originalData, String blueprintName) {
-        return originalData.stream().filter(mat-> mat.getSelectedForCraft() && mat.getMaterialsList().stream().anyMatch(m-> m.getName().equals(blueprintName)))
-                .flatMap(mat-> mat.getMaterialsList().stream()).filter(m-> m.getName().equals(blueprintName)).map(MaterialInfo::getQuantity).reduce(Integer::sum).orElse(0);
+    private List<BlueprintResult> adjustDeselectedItems(List<BlueprintResult> originalData) {
+        return originalData.stream().map(material -> {
+            Boolean selectedParent = originalData.stream().filter(mat -> mat.getMaterialsList().stream().anyMatch(m -> m.getName().equals(material.getName())))
+                    .findFirst().map(BlueprintResult::getSelectedForCraft).orElse(true);
+            if (Boolean.FALSE.equals(selectedParent)) {
+                return material.withSelectedForCraft(Boolean.FALSE);
+            }
+            return material.withSelectedForCraft(Boolean.TRUE);
+        }).toList();
     }
-    private BlueprintResult updateNeededMaterials(List<BlueprintResult> originalData,BlueprintResult material,
+
+    private void adjustSelectedItems(List<BlueprintResult> originalData, BlueprintResult selectedItem) {
+        selectedItem.getMaterialsList().forEach(material -> {
+            BlueprintResult alreadyExist = originalData.stream().filter(mat -> mat.getName().equals(material.getName())).findFirst().orElse(null);
+            if (Objects.nonNull(alreadyExist)) {
+                alreadyExist.setSelectedForCraft(!alreadyExist.getSelectedForCraft());
+                adjustSelectedItems(originalData, alreadyExist);
+            }
+        });
+    }
+
+    private Integer calculateQuantity(List<BlueprintResult> originalData, String blueprintName) {
+        return originalData.stream().filter(mat -> mat.getSelectedForCraft() && mat.getMaterialsList().stream().anyMatch(m -> m.getName().equals(blueprintName)))
+                .flatMap(mat -> mat.getMaterialsList().stream()).filter(m -> m.getName().equals(blueprintName)).map(MaterialInfo::getQuantity).reduce(Integer::sum).orElse(0);
+    }
+
+    private BlueprintResult updateNeededMaterials(List<BlueprintResult> originalData, BlueprintResult material,
                                                   Map<String, Integer> initialQuantities) {
         BlueprintServiceImpl self = applicationContext.getBean(BlueprintServiceImpl.class);
-        Integer quant = originalData.stream().filter(mat-> mat.getSelectedForCraft() && mat.getMaterialsList().stream().anyMatch(m-> m.getName().equals(material.getName())))
-                .flatMap(mat-> mat.getMaterialsList().stream()).filter(m-> m.getName().equals(material.getName())).map(MaterialInfo::getQuantity).reduce(Integer::sum).orElse(0);
+        Integer quant = calculateQuantity(originalData, material.getName());
 
         if (initialQuantities.containsKey(material.getName()) && !Objects.equals(initialQuantities.get(material.getName()), quant)) {
             if (quant == 0) {
+                return material.withSelectedForCraft(Boolean.FALSE);
+            }
+            return self.getBlueprintData(BlueprintRequest.builder()
+                    .blueprintName(material.getName())
+                    .runs(quant)
+                    .blueprintMe(material.getBlueprintMaterialEfficiency())
+                    .system(material.getSystem())
+                    .regionId(material.getRegionId())
+                    .facilityTax(material.getFacilityTax())
+                    .buildingRig(material.getRigDiscount())
+                    .building(material.getBuildingDiscount())
+                    .tier(material.getTier())
+                    .build());
+        }
+        return material;
+    }
+
+    private BlueprintResult updateNeededMaterialsV2(List<BlueprintResult> originalData, BlueprintResult material,
+                                                  Map<String, Integer> initialQuantities) {
+        BlueprintServiceImpl self = applicationContext.getBean(BlueprintServiceImpl.class);
+        Integer quant = calculateQuantity(originalData, material.getName());
+
+        if (initialQuantities.containsKey(material.getName()) && !Objects.equals(initialQuantities.get(material.getName()), quant)) {
+            if (quant == 0) {
+                for (int i = 0; i < originalData.size(); i++) {
+                    if (originalData.get(i).getName().equals(material.getName())) {
+                        originalData.set(i, originalData.get(i).withSelectedForCraft(Boolean.FALSE));
+                        break; // Stop looping after the first match (optional, depending on your needs)
+                    }
+                }
                 return material.withSelectedForCraft(Boolean.FALSE);
             }
             return self.getBlueprintData(BlueprintRequest.builder()
