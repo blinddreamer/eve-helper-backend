@@ -4,7 +4,6 @@ import com.example.pandatribe.logging.JsonLogger;
 import com.example.pandatribe.models.requests.AppraisalRequest;
 import com.example.pandatribe.models.results.AppraisalResult;
 import com.example.pandatribe.services.contracts.AppraisalService;
-import com.example.pandatribe.services.contracts.BlueprintService;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

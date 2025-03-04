@@ -32,7 +32,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -196,7 +195,7 @@ public class BlueprintServiceImpl implements BlueprintService {
                     .materialsList(materialsList)
                     .craftPrice(materialsList.stream().map(materialInfo -> materialInfo.getPrice().multiply(BigDecimal.valueOf(materialInfo.getQuantity()))).reduce(BigDecimal.ZERO, BigDecimal::add).add(industryCosts))
                     .industryCosts(industryCosts)
-                    .excessMaterials(Math.abs(craftQuantity - (runs * count)))
+                    // .excessMaterials(Math.abs(craftQuantity >1 ? craftQuantity -(runs * count) : 0 ))
                     .craftQuantity(craftQuantity)
                     .tier(tier)
                     .isFuel(blueprintName.contains("Fuel Block"))
@@ -210,6 +209,7 @@ public class BlueprintServiceImpl implements BlueprintService {
                     .icon(eveType.get().getGroupId().equals(541) ? helper.generateRenderLink(eveType.get().getTypeId(), size) : helper.generateIconLink(eveType.get().getTypeId(), size))
                     .sellPrice(price)
                     .totalSellPrice(price.multiply(BigDecimal.valueOf(runs)).multiply(BigDecimal.valueOf(count)))
+                    .jobsCount(craftCount)
                     .build();
         }
         return null;
@@ -226,7 +226,9 @@ public class BlueprintServiceImpl implements BlueprintService {
         if (Objects.nonNull(alreadyExistingData)) {
             List<BlueprintResult> tempList = new ArrayList<>();
             alreadyExistingData.setSelectedForCraft(!alreadyExistingData.getSelectedForCraft());
-            adjustSelectedItems(originalData, alreadyExistingData);
+            if (Boolean.FALSE.equals(alreadyExistingData.getSelectedForCraft())) {
+                adjustSelectedItems(originalData, alreadyExistingData);
+            }
             tempList.add(originalData.get(0));
             originalData.stream().skip(1).forEach(mat -> tempList.add(updateNeededMaterials(originalData, mat, initialQuantities)));
             blueprintData = blueprintData.withBlueprintResult(tempList);
@@ -298,27 +300,15 @@ public class BlueprintServiceImpl implements BlueprintService {
                 .build());
         blueprintDataResult.add(result);
         tempList.add(blueprintDataResult.get(0));
-        List<BlueprintResult> temp = new ArrayList<>(blueprintDataResult);
         blueprintDataResult.stream().skip(1).forEach(mat -> tempList.add(updateNeededMaterials(blueprintDataResult, mat, initialQuantities)));
         return tempList;
-    }
-
-    private List<BlueprintResult> adjustDeselectedItems(List<BlueprintResult> originalData) {
-        return originalData.stream().map(material -> {
-            Boolean selectedParent = originalData.stream().filter(mat -> mat.getMaterialsList().stream().anyMatch(m -> m.getName().equals(material.getName())))
-                    .findFirst().map(BlueprintResult::getSelectedForCraft).orElse(true);
-            if (Boolean.FALSE.equals(selectedParent)) {
-                return material.withSelectedForCraft(Boolean.FALSE);
-            }
-            return material.withSelectedForCraft(Boolean.TRUE);
-        }).toList();
     }
 
     private void adjustSelectedItems(List<BlueprintResult> originalData, BlueprintResult selectedItem) {
         selectedItem.getMaterialsList().forEach(material -> {
             BlueprintResult alreadyExist = originalData.stream().filter(mat -> mat.getName().equals(material.getName())).findFirst().orElse(null);
             if (Objects.nonNull(alreadyExist)) {
-                alreadyExist.setSelectedForCraft(!alreadyExist.getSelectedForCraft());
+                alreadyExist.setSelectedForCraft(Boolean.FALSE);
                 adjustSelectedItems(originalData, alreadyExist);
             }
         });
@@ -334,52 +324,22 @@ public class BlueprintServiceImpl implements BlueprintService {
         BlueprintServiceImpl self = applicationContext.getBean(BlueprintServiceImpl.class);
         Integer quant = calculateQuantity(originalData, material.getName());
 
-        if (initialQuantities.containsKey(material.getName()) && !Objects.equals(initialQuantities.get(material.getName()), quant)) {
-            if (quant == 0) {
-                return material.withSelectedForCraft(Boolean.FALSE);
-            }
-            return self.getBlueprintData(BlueprintRequest.builder()
-                    .blueprintName(material.getName())
-                    .runs(quant)
-                    .blueprintMe(material.getBlueprintMaterialEfficiency())
-                    .system(material.getSystem())
-                    .regionId(material.getRegionId())
-                    .facilityTax(material.getFacilityTax())
-                    .buildingRig(material.getRigDiscount())
-                    .building(material.getBuildingDiscount())
-                    .tier(material.getTier())
-                    .build());
+//        if (initialQuantities.containsKey(material.getName()) && !Objects.equals(initialQuantities.get(material.getName()), quant)) {
+        if (quant == 0 || Boolean.FALSE.equals(material.getSelectedForCraft())) {
+            return material.withSelectedForCraft(Boolean.FALSE);
         }
-        return material;
-    }
-
-    private BlueprintResult updateNeededMaterialsV2(List<BlueprintResult> originalData, BlueprintResult material,
-                                                  Map<String, Integer> initialQuantities) {
-        BlueprintServiceImpl self = applicationContext.getBean(BlueprintServiceImpl.class);
-        Integer quant = calculateQuantity(originalData, material.getName());
-
-        if (initialQuantities.containsKey(material.getName()) && !Objects.equals(initialQuantities.get(material.getName()), quant)) {
-            if (quant == 0) {
-                for (int i = 0; i < originalData.size(); i++) {
-                    if (originalData.get(i).getName().equals(material.getName())) {
-                        originalData.set(i, originalData.get(i).withSelectedForCraft(Boolean.FALSE));
-                        break; // Stop looping after the first match (optional, depending on your needs)
-                    }
-                }
-                return material.withSelectedForCraft(Boolean.FALSE);
-            }
-            return self.getBlueprintData(BlueprintRequest.builder()
-                    .blueprintName(material.getName())
-                    .runs(quant)
-                    .blueprintMe(material.getBlueprintMaterialEfficiency())
-                    .system(material.getSystem())
-                    .regionId(material.getRegionId())
-                    .facilityTax(material.getFacilityTax())
-                    .buildingRig(material.getRigDiscount())
-                    .building(material.getBuildingDiscount())
-                    .tier(material.getTier())
-                    .build());
-        }
-        return material;
+        return self.getBlueprintData(BlueprintRequest.builder()
+                .blueprintName(material.getName())
+                .runs(quant)
+                .blueprintMe(material.getBlueprintMaterialEfficiency())
+                .system(material.getSystem())
+                .regionId(material.getRegionId())
+                .facilityTax(material.getFacilityTax())
+                .buildingRig(material.getRigDiscount())
+                .building(material.getBuildingDiscount())
+                .tier(material.getTier())
+                .build());
+//        }
+//        return material;
     }
 }

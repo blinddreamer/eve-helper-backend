@@ -18,18 +18,4 @@ public class BlueprintRequest {
     private Boolean init;
     private String requestId;
     private Integer tier;
-
-    public String cacheKey() {
-        return String.join("|",
-                blueprintName,
-                String.valueOf(runs),
-                String.valueOf(count),
-                system,
-                String.valueOf(blueprintMe),
-                String.valueOf(facilityTax),
-                String.valueOf(buildingRig),
-                String.valueOf(building),
-                String.valueOf(regionId)
-        );
-    }
 }

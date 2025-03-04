@@ -1,7 +1,6 @@
 package com.example.pandatribe.models;
 
 import com.example.pandatribe.convertors.JsonToBlueprintData;
-import com.example.pandatribe.convertors.JsonToBlueprintInfo;
 import com.example.pandatribe.models.results.BlueprintResult;
 import jakarta.persistence.*;
 import lombok.*;
@@ -20,10 +19,6 @@ public class BlueprintData {
     @Id
     @Column(name="id")
     private String id;
-
-//    @Column(name = "blueprint_info",columnDefinition = "jsonb")
-//    @Convert(converter = JsonToBlueprintInfo.class)
-//    private BlueprintResult initialBlueprint;
 
     @Column(name = "blueprint_data",columnDefinition = "jsonb")
     @Convert(converter = JsonToBlueprintData.class)
