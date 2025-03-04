@@ -163,18 +163,18 @@ public class BlueprintServiceImpl implements BlueprintService {
         Integer count = Optional.ofNullable(blueprintRequest.getCount()).orElse(1);
         Integer regionId = Optional.ofNullable(blueprintRequest.getRegionId()).orElse(REGION_ID);
         Integer tier = Optional.ofNullable(blueprintRequest.getTier()).orElse(0);
-        Optional<EveType> eveType = repository.findEveTypeByTypeName(blueprintName);
-        if (eveType.isEmpty()) {
+        EveType eveType = repository.findEveTypeByTypeName(blueprintName).stream().findFirst().orElse(null);
+        if (Objects.isNull(eveType)) {
             return null;
         }
         Integer size = Boolean.TRUE.equals(init) ? 256 : 32;
-        BlueprintActivity blueprintActivity = eveCustomRepository.getBluePrintInfoByProduct(eveType.get().getTypeId());
+        BlueprintActivity blueprintActivity = eveCustomRepository.getBluePrintInfoByProduct(eveType.getTypeId());
         if (Objects.nonNull(blueprintActivity)) {
             SystemInfo systemInfo = eveCustomRepository.getSystemInfo(system);
             if (Objects.isNull(systemInfo)) {
                 systemInfo = eveCustomRepository.getSystemInfo(DEFAULT_SYSTEM);
             }
-            Integer volume = eveCustomRepository.getVolume(eveType.get().getTypeId());
+            Integer volume = eveCustomRepository.getVolume(eveType.getTypeId());
             Integer matBlueprintId = blueprintActivity.getBlueprintId();
             Integer craftCount = (int) Math.ceil((double) runs / blueprintActivity.getCraftQuantity());
             Double craftQuantity = Optional.of(blueprintActivity).map(b -> Double.parseDouble(b.getCraftQuantity().toString())).orElse(1.0);
@@ -182,13 +182,13 @@ public class BlueprintServiceImpl implements BlueprintService {
             String activity = blueprintActivity.getActivityId().equals(REACTION_ACTIVITY_ID) ? REACTION : MANUFACTURING;
             BigDecimal industryCosts = calculateIndustryTaxes(facilityTax, systemInfo.getSystemId(), materialsList, activity, buildingDiscount, count);
             BigDecimal price = marketService
-                    .getItemSellOrderPrice(DEFAULT_LOCATION_ID, marketService.getItemMarketPrice(eveType.get().getTypeId(), regionId, ORDER_TYPE));
+                    .getItemSellOrderPrice(DEFAULT_LOCATION_ID, marketService.getItemMarketPrice(eveType.getTypeId(), regionId, ORDER_TYPE));
 
             return BlueprintResult.builder()
-                    .id(eveType.get().getTypeId())
+                    .id(eveType.getTypeId())
                     .name(blueprintName)
-                    .totalVolume((Objects.nonNull(volume) ? volume : eveType.get().getVolume()) * runs * count)
-                    .volume((Objects.nonNull(volume) ? volume : eveType.get().getVolume()))
+                    .totalVolume((Objects.nonNull(volume) ? volume : eveType.getVolume()) * runs * count)
+                    .volume((Objects.nonNull(volume) ? volume : eveType.getVolume()))
                     .isCreatable(Boolean.TRUE)
                     .quantity(runs * count)
                     .activityId(blueprintActivity.getActivityId())
@@ -206,7 +206,7 @@ public class BlueprintServiceImpl implements BlueprintService {
                     .buildingDiscount(buildingDiscount)
                     .selectedForCraft(Boolean.TRUE)
                     .rigDiscount(rigDiscount)
-                    .icon(eveType.get().getGroupId().equals(541) ? helper.generateRenderLink(eveType.get().getTypeId(), size) : helper.generateIconLink(eveType.get().getTypeId(), size))
+                    .icon(eveType.getGroupId().equals(541) ? helper.generateRenderLink(eveType.getTypeId(), size) : helper.generateIconLink(eveType.getTypeId(), size))
                     .sellPrice(price)
                     .totalSellPrice(price.multiply(BigDecimal.valueOf(runs)).multiply(BigDecimal.valueOf(count)))
                     .jobsCount(craftCount)

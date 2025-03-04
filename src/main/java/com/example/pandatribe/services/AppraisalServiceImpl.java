@@ -33,7 +33,7 @@ public class AppraisalServiceImpl implements AppraisalService {
     public AppraisalResult generateAppraisalResult(AppraisalRequest appraisalRequest) {
 
      List<AppraisalResultEntity> appraisalEntities = appraisalRequest.getAppraisalRequestEntityList().stream().map(appraisal -> {
-            EveType eveType = eveTypesRepository.findEveTypeByTypeName(appraisal.getName()).orElse(null);
+            EveType eveType = eveTypesRepository.findEveTypeByTypeName(appraisal.getName()).stream().findFirst().orElse(null);
             if(Objects.isNull(eveType)){
                 LOGGER.error("Eve ITEM with name {} was not found",appraisal.getName());
                 return null;
