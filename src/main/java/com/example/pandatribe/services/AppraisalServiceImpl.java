@@ -18,7 +18,6 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -60,7 +59,7 @@ public class AppraisalServiceImpl implements AppraisalService {
                             .count())
                     .build();
                 })
-             .collect(Collectors.toList());
+             .toList();
 
 
         return AppraisalResult.builder()

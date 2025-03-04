@@ -10,5 +10,6 @@ import lombok.With;
 public class Blueprint {
     private Integer bpId;
     private String blueprint;
+    private Integer activity;
     private Integer complexity;
 }
