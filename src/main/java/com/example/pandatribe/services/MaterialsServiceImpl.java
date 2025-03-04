@@ -75,8 +75,9 @@ public class MaterialsServiceImpl implements MaterialService {
 
             BlueprintActivity blueprintActivity = eveCustomRepository.getBluePrintInfoByProduct(eveType.get().getTypeId());
             Integer volume = eveCustomRepository.getVolume(eveType.get().getTypeId());
-            Double craftQuantity = Optional.ofNullable(blueprintActivity).map(b -> Double.parseDouble(b.getCraftQuantity().toString())).orElse(1.0);
-            Integer matQuantity = material.getQuantity() == 1 ? material.getQuantity() * quantity : this.getQuantityDiscount(BigDecimal.valueOf((long) material.getQuantity() * quantity), rigBonus.getMaterialReduction() * rigMultiplier, materialEfficiency, buildingBonus.getMaterialReduction()) * blueprintCount;
+         //   Double craftQuantity = Optional.ofNullable(blueprintActivity).map(b -> Double.parseDouble(b.getCraftQuantity().toString())).orElse(1.0);
+            Integer matQuantity = material.getQuantity() == 1 ? material.getQuantity() *
+                    quantity : this.getQuantityDiscount(BigDecimal.valueOf((long) material.getQuantity() * quantity), rigBonus.getMaterialReduction() * rigMultiplier, materialEfficiency, buildingBonus.getMaterialReduction());
    //         Integer jobsCount = Objects.nonNull(blueprintActivity) ? (int) Math.ceil(matQuantity / craftQuantity) : matQuantity;
 //            BlueprintResult.BlueprintResultBuilder materialDto = BlueprintResult.builder()
 //                    .id(eveType.get().getTypeId())
@@ -109,7 +110,7 @@ public class MaterialsServiceImpl implements MaterialService {
 //            materialDto.isCreatable(skip ? Boolean.FALSE : Boolean.TRUE);
             materialList.add(MaterialInfo.builder().id(eveType.get().getTypeId())
                             .name(eveType.get().getTypeName())
-                            .quantity(matQuantity)
+                            .quantity(matQuantity*blueprintCount)
                             .volume(Objects.nonNull(volume) ? volume : eveType.get().getVolume())
                             .price(marketService.getItemSellOrderPrice(LOCATION_ID, marketItemPriceData))
                             .adjustedPrice(marketPriceData.stream()
