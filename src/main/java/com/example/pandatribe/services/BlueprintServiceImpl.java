@@ -1,13 +1,19 @@
 package com.example.pandatribe.services;
 
-import com.example.pandatribe.models.requests.BlueprintRequest;
-import com.example.pandatribe.models.results.*;
+import com.example.pandatribe.models.BlueprintData;
 import com.example.pandatribe.models.industry.CostIndex;
 import com.example.pandatribe.models.industry.blueprints.BlueprintActivity;
 import com.example.pandatribe.models.industry.blueprints.EveType;
+import com.example.pandatribe.models.requests.BlueprintRequest;
+import com.example.pandatribe.models.requests.MaterialInfo;
+import com.example.pandatribe.models.results.Blueprint;
+import com.example.pandatribe.models.results.BlueprintResult;
+import com.example.pandatribe.models.results.GetBlueprintsResult;
+import com.example.pandatribe.models.results.SystemName;
 import com.example.pandatribe.models.universe.Region;
 import com.example.pandatribe.models.universe.Station;
 import com.example.pandatribe.models.universe.SystemInfo;
+import com.example.pandatribe.repositories.interfaces.BlueprintDataRepository;
 import com.example.pandatribe.repositories.interfaces.EveCustomRepository;
 import com.example.pandatribe.repositories.interfaces.EveTypesRepository;
 import com.example.pandatribe.services.contracts.BlueprintService;
@@ -18,14 +24,14 @@ import com.example.pandatribe.utils.Helper;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.time.LocalDate;
+import java.util.*;
 
 @Service
 @AllArgsConstructor
@@ -44,71 +50,69 @@ public class BlueprintServiceImpl implements BlueprintService {
     private final EveCustomRepository eveCustomRepository;
     private final IndustryService industryService;
     private final Helper helper;
+    private final BlueprintDataRepository blueprintDataRepository;
+    private final ApplicationContext applicationContext;
 
 
     @Override
-    @Transactional
-    public BlueprintResult getBlueprintData(BlueprintRequest blueprintRequest){
-        Boolean init = Optional.ofNullable(blueprintRequest.getInit()).orElse(false);
-        Integer runs = Optional.ofNullable(blueprintRequest.getRuns()).orElse(1);
-        Integer blueprintMaterialEfficiency = Optional.ofNullable(blueprintRequest.getBlueprintMe()).orElse(0);
-        Integer rigDiscount = Optional.ofNullable(blueprintRequest.getBuildingRig()).orElse(0);
-        Integer buildingDiscount = Optional.ofNullable(blueprintRequest.getBuilding()).orElse(0);
-        String system = Optional.ofNullable(blueprintRequest.getSystem()).filter(s -> !s.isEmpty()).orElse(DEFAULT_SYSTEM);
-        Double facilityTax = Optional.ofNullable(blueprintRequest.getFacilityTax()).orElse(0.0);
-        String blueprintName = blueprintRequest.getBlueprintName();
-        Integer count = Optional.ofNullable(blueprintRequest.getCount()).orElse(1);
-        Integer regionId = Optional.ofNullable(blueprintRequest.getRegionId()).orElse(REGION_ID);
-
-        Optional<EveType> eveType = repository.findEveTypeByTypeName(blueprintName);
-        if (eveType.isEmpty()){
+    public BlueprintData getInitialBlueprintData(BlueprintRequest searchDto) {
+        BlueprintServiceImpl self = applicationContext.getBean(BlueprintServiceImpl.class);
+        BlueprintResult initialBlueprint = self.getBlueprintData(searchDto);
+        if (Objects.isNull(initialBlueprint)) {
             return null;
         }
-        Integer size = init ? 256 : 32;
-        BlueprintActivity blueprintActivity = eveCustomRepository.getBluePrintInfoByProduct(eveType.get().getTypeId());
-        if(Objects.nonNull(blueprintActivity)) {
-            SystemInfo systemInfo = eveCustomRepository.getSystemInfo(system);
-        if(Objects.isNull(systemInfo)){
-            systemInfo = eveCustomRepository.getSystemInfo(DEFAULT_SYSTEM);
-        }
-            Integer volume = eveCustomRepository.getVolume(eveType.get().getTypeId());
-            Integer  matBlueprintId = blueprintActivity.getBlueprintId();
-            List<BlueprintResult> materialsList = materialsService.getMaterialsByActivity(matBlueprintId, runs, rigDiscount, blueprintMaterialEfficiency, buildingDiscount, systemInfo.getSecurity(), count, regionId);
-            String activity = blueprintActivity.getActivityId().equals(REACTION_ACTIVITY_ID) ? REACTION : MANUFACTURING;
-            BigDecimal industryCosts = calculateIndustryTaxes(facilityTax, systemInfo.getSystemId(), materialsList, activity, buildingDiscount, count);
+        List<BlueprintResult> blueprintResults = new ArrayList<>();
+//        initialBlueprint.getMaterialsList().forEach(material -> {
+//            BlueprintResult result = BlueprintResult.builder()
+//                    .name(material.getName())
+//                    .tier(material.getTier())
+//                    .volume(material.getVolume())
+//                    .sellPrice(material.getPrice())
+//                    .adjustedPrice(material.getAdjustedPrice())
+//                    .build();
+//            blueprintResults.add(result);
+//        });
+        blueprintResults.add(initialBlueprint);
+        return blueprintDataRepository.saveAndFlush(
+                BlueprintData.builder().id(UUID.randomUUID().toString())
+                        //        .initialBlueprint(initialBlueprint)
+                        .blueprintResult(blueprintResults)
+                        .creationDate(LocalDate.now()).build());
+    }
 
-            return BlueprintResult.builder()
-                    .name(blueprintName)
-                    .volume((Objects.nonNull(volume)? volume : eveType.get().getVolume()) * runs *count)
-                    .isCreatable(Boolean.TRUE)
-                    .quantity(runs* count)
-                    .activityId(blueprintActivity.getActivityId())
-                    .materialsList(materialsList)
-                    .industryCosts(industryCosts)
-                    .icon(eveType.get().getGroupId().equals(541) ? helper.generateRenderLink(eveType.get().getTypeId(),size) : helper.generateIconLink(eveType.get().getTypeId(),size))
-                    .sellPrice(marketService
-                            .getItemSellOrderPrice(DEFAULT_LOCATION_ID, marketService.getItemMarketPrice(eveType.get().getTypeId(),regionId, ORDER_TYPE))
-                            .multiply(BigDecimal.valueOf(runs))
-                            .multiply(BigDecimal.valueOf(count)))
-                    .build();
-
+    public BlueprintData massUpdateMaterials(List<BlueprintRequest> requests) {
+        BlueprintData blueprintData = blueprintDataRepository.findById(requests.get(0).getRequestId()).orElse(null);
+        if (blueprintData == null) {
+            return null;
         }
-       return null;
+        requests.forEach(request -> updateBlueprintData(blueprintData, request));
+        return blueprintDataRepository.saveAndFlush(blueprintData);
+    }
+
+    @Override
+    public BlueprintData updateSubMaterials(BlueprintRequest subMaterialsRequest) {
+        BlueprintData blueprintData = blueprintDataRepository.findById(subMaterialsRequest.getRequestId()).orElse(null);
+        if (blueprintData == null) {
+            return null;
+        }
+        return blueprintDataRepository.saveAndFlush(updateBlueprintData(blueprintData, subMaterialsRequest));
     }
 
     @Override
     public GetBlueprintsResult getEveBlueprints() {
-        List<Blueprint> blueprints = eveCustomRepository.getBlueprints().stream().filter(bp-> Objects.nonNull(bp.getBlueprint())).toList();
+        List<Blueprint> blueprints = eveCustomRepository.getBlueprints();
         LOGGER.info("Blueprints loaded - {}", !blueprints.isEmpty());
+
         return GetBlueprintsResult.builder()
-                .blueprints(blueprints)
+                .blueprints(blueprints.stream().map(bp ->
+                        bp.withComplexity(materialsService.getBlueprintComplexity(bp.getBpId()))).toList())
                 .build();
     }
 
     @Override
     public List<SystemName> getEveSystems() {
-        List<SystemName> systems =  eveCustomRepository.getSystems();
-        LOGGER.info("Regions loaded - {}", !systems.isEmpty());
+        List<SystemName> systems = eveCustomRepository.getSystems();
+        LOGGER.info("Systems loaded - {}", !systems.isEmpty());
         return systems;
     }
 
@@ -126,8 +130,8 @@ public class BlueprintServiceImpl implements BlueprintService {
         return stations;
     }
 
-    private BigDecimal calculateIndustryTaxes(Double facilityPercent, Integer systemId, List<BlueprintResult> materials, String activity, Integer buildingIndex, Integer count){
-        BigDecimal eiv =  materials.stream().map(BlueprintResult::getAdjustedPrice).reduce(BigDecimal.ZERO,BigDecimal::add);
+    private BigDecimal calculateIndustryTaxes(Double facilityPercent, Integer systemId, List<MaterialInfo> materials, String activity, Integer buildingIndex, Integer count) {
+        BigDecimal eiv = materials.stream().map(MaterialInfo::getAdjustedPrice).reduce(BigDecimal.ZERO, BigDecimal::add);
         Integer buildingBonus = helper.getBuildingBonus(buildingIndex).getCostReduction();
         Double surcharge = 4.0;
         Double costIndex = industryService.getSystemCostIndexes().stream()
@@ -138,11 +142,204 @@ public class BlueprintServiceImpl implements BlueprintService {
                 .map(CostIndex::getCostIndex)
                 .orElse(0.0);
         BigDecimal systemCost = eiv.multiply(BigDecimal.valueOf(costIndex));
-        BigDecimal buildingCostReduction = BigDecimal.valueOf(buildingBonus).divide(BigDecimal.valueOf(100),RoundingMode.CEILING).multiply(systemCost);
-        BigDecimal facilityTax = BigDecimal.valueOf(facilityPercent/100).multiply(eiv).setScale(0, RoundingMode.CEILING);
-        BigDecimal surChargeTax = BigDecimal.valueOf(surcharge/100).multiply(eiv).setScale(0,RoundingMode.CEILING);
+        BigDecimal buildingCostReduction = BigDecimal.valueOf(buildingBonus).divide(BigDecimal.valueOf(100), RoundingMode.CEILING).multiply(systemCost);
+        BigDecimal facilityTax = BigDecimal.valueOf(facilityPercent / 100).multiply(eiv).setScale(0, RoundingMode.CEILING);
+        BigDecimal surChargeTax = BigDecimal.valueOf(surcharge / 100).multiply(eiv).setScale(0, RoundingMode.CEILING);
         BigDecimal finalPrice = (systemCost.subtract(buildingCostReduction)).add(facilityTax).add(surChargeTax);
 
-        return finalPrice.setScale(0,RoundingMode.CEILING).multiply(BigDecimal.valueOf(count));
+        return finalPrice.setScale(0, RoundingMode.CEILING).multiply(BigDecimal.valueOf(count));
+    }
+
+    @Cacheable(value = "cacheCalculator")
+    public BlueprintResult getBlueprintData(BlueprintRequest blueprintRequest) {
+        Boolean init = Optional.ofNullable(blueprintRequest.getInit()).orElse(false);
+        Integer runs = Optional.ofNullable(blueprintRequest.getRuns()).orElse(1);
+        Integer blueprintMaterialEfficiency = Optional.ofNullable(blueprintRequest.getBlueprintMe()).orElse(0);
+        Integer rigDiscount = Optional.ofNullable(blueprintRequest.getBuildingRig()).orElse(0);
+        Integer buildingDiscount = Optional.ofNullable(blueprintRequest.getBuilding()).orElse(0);
+        String system = Optional.ofNullable(blueprintRequest.getSystem()).filter(s -> !s.isEmpty()).orElse(DEFAULT_SYSTEM);
+        Double facilityTax = Optional.ofNullable(blueprintRequest.getFacilityTax()).orElse(0.0);
+        String blueprintName = blueprintRequest.getBlueprintName();
+        Integer count = Optional.ofNullable(blueprintRequest.getCount()).orElse(1);
+        Integer regionId = Optional.ofNullable(blueprintRequest.getRegionId()).orElse(REGION_ID);
+        Integer tier = Optional.ofNullable(blueprintRequest.getTier()).orElse(0);
+        Optional<EveType> eveType = repository.findEveTypeByTypeName(blueprintName);
+        if (eveType.isEmpty()) {
+            return null;
+        }
+        Integer size = Boolean.TRUE.equals(init) ? 256 : 32;
+        BlueprintActivity blueprintActivity = eveCustomRepository.getBluePrintInfoByProduct(eveType.get().getTypeId());
+        if (Objects.nonNull(blueprintActivity)) {
+            SystemInfo systemInfo = eveCustomRepository.getSystemInfo(system);
+            if (Objects.isNull(systemInfo)) {
+                systemInfo = eveCustomRepository.getSystemInfo(DEFAULT_SYSTEM);
+            }
+            Integer volume = eveCustomRepository.getVolume(eveType.get().getTypeId());
+            Integer matBlueprintId = blueprintActivity.getBlueprintId();
+            Integer craftCount = (int) Math.ceil((double) runs / blueprintActivity.getCraftQuantity());
+            Double craftQuantity = Optional.of(blueprintActivity).map(b -> Double.parseDouble(b.getCraftQuantity().toString())).orElse(1.0);
+            List<MaterialInfo> materialsList = materialsService.getMaterialsByActivity(matBlueprintId, craftCount, rigDiscount, blueprintMaterialEfficiency, buildingDiscount, systemInfo.getSecurity(), count, regionId, tier);
+            String activity = blueprintActivity.getActivityId().equals(REACTION_ACTIVITY_ID) ? REACTION : MANUFACTURING;
+            BigDecimal industryCosts = calculateIndustryTaxes(facilityTax, systemInfo.getSystemId(), materialsList, activity, buildingDiscount, count);
+            BigDecimal price = marketService
+                    .getItemSellOrderPrice(DEFAULT_LOCATION_ID, marketService.getItemMarketPrice(eveType.get().getTypeId(), regionId, ORDER_TYPE));
+
+            return BlueprintResult.builder()
+                    .id(eveType.get().getTypeId())
+                    .name(blueprintName)
+                    .totalVolume((Objects.nonNull(volume) ? volume : eveType.get().getVolume()) * runs * count)
+                    .volume((Objects.nonNull(volume) ? volume : eveType.get().getVolume()))
+                    .isCreatable(Boolean.TRUE)
+                    .quantity(runs * count)
+                    .activityId(blueprintActivity.getActivityId())
+                    .materialsList(materialsList)
+                    .craftPrice(materialsList.stream().map(materialInfo -> materialInfo.getPrice().multiply(BigDecimal.valueOf(materialInfo.getQuantity()))).reduce(BigDecimal.ZERO, BigDecimal::add).add(industryCosts))
+                    .industryCosts(industryCosts)
+                    // .excessMaterials(Math.abs(craftQuantity >1 ? craftQuantity -(runs * count) : 0 ))
+                    .craftQuantity(craftQuantity)
+                    .tier(tier)
+                    .isFuel(blueprintName.contains("Fuel Block"))
+                    .blueprintMaterialEfficiency(blueprintMaterialEfficiency)
+                    .facilityTax(facilityTax)
+                    .regionId(regionId)
+                    .system(system)
+                    .buildingDiscount(buildingDiscount)
+                    .selectedForCraft(Boolean.TRUE)
+                    .rigDiscount(rigDiscount)
+                    .icon(eveType.get().getGroupId().equals(541) ? helper.generateRenderLink(eveType.get().getTypeId(), size) : helper.generateIconLink(eveType.get().getTypeId(), size))
+                    .sellPrice(price)
+                    .totalSellPrice(price.multiply(BigDecimal.valueOf(runs)).multiply(BigDecimal.valueOf(count)))
+                    .jobsCount(craftCount)
+                    .build();
+        }
+        return null;
+    }
+
+    private BlueprintData updateBlueprintData(BlueprintData blueprintData, BlueprintRequest subMaterialsRequest) {
+        Map<String, Integer> initialQuantities = new HashMap<>();
+        List<BlueprintResult> originalData = blueprintData.getBlueprintResult();
+        blueprintData.getBlueprintResult().forEach(result -> {
+            //Integer quant = calculateQuantity(originalData, result.getName());
+            initialQuantities.put(result.getName(), result.getQuantity());
+        });
+        BlueprintResult alreadyExistingData = blueprintData.getBlueprintResult().stream().filter(mat -> mat.getName().equals(subMaterialsRequest.getBlueprintName())).findFirst().orElse(null);
+        if (Objects.nonNull(alreadyExistingData)) {
+            List<BlueprintResult> tempList = new ArrayList<>();
+            alreadyExistingData.setSelectedForCraft(!alreadyExistingData.getSelectedForCraft());
+            if (Boolean.FALSE.equals(alreadyExistingData.getSelectedForCraft())) {
+                adjustSelectedItems(originalData, alreadyExistingData);
+            }
+            tempList.add(originalData.get(0));
+            originalData.stream().skip(1).forEach(mat -> tempList.add(updateNeededMaterials(originalData, mat, initialQuantities)));
+            blueprintData = blueprintData.withBlueprintResult(tempList);
+            BlueprintResult initialBlueprint = tempList.get(0);
+            BigDecimal price = recalculateMasterCraftingPrice(blueprintData).add(initialBlueprint.getIndustryCosts());
+            initialBlueprint.setCraftPrice(price);
+            return blueprintData.withBlueprintResult(tempList);
+        } else {
+
+            List<BlueprintResult> newData = updateList(blueprintData.getBlueprintResult(), subMaterialsRequest, initialQuantities);
+//            newData.get(0).setCraftPrice(recalculateMasterCraftingPrice(blueprintData).add(newData.get(0).getIndustryCosts()));
+            BlueprintResult initialBlueprint = newData.get(0);
+            BigDecimal price = recalculateMasterCraftingPrice(blueprintData).add(initialBlueprint.getIndustryCosts());
+            initialBlueprint.setCraftPrice(price);
+            return blueprintData.withBlueprintResult(newData);
+        }
+    }
+
+    private BigDecimal recalculateMasterCraftingPrice(BlueprintData blueprintData) {
+
+        List<MaterialInfo> initialMatList = blueprintData.getBlueprintResult().get(0).getMaterialsList();
+        List<BlueprintResult> selectedForCraftList = blueprintData.getBlueprintResult();
+        return initialMatList.stream().map(mat -> {
+                    BlueprintResult existingMat = selectedForCraftList.stream().filter(bp -> bp.getName().equals(mat.getName())).findFirst().orElse(null);
+                    if (Objects.nonNull(existingMat)) {
+                        if (Boolean.TRUE.equals(existingMat.getSelectedForCraft())) {
+                            return recalculateSubMaterialsCraftingPrices(existingMat.getMaterialsList(), selectedForCraftList).add(existingMat.getIndustryCosts());
+                        } else {
+                            return mat.getPrice().multiply(BigDecimal.valueOf(mat.getQuantity()));
+                        }
+                    } else {
+                        return mat.getPrice().multiply(BigDecimal.valueOf(calculateQuantity(selectedForCraftList, mat.getName())));
+                    }
+                })
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal recalculateSubMaterialsCraftingPrices(List<MaterialInfo> materialsList, List<BlueprintResult> selectedForCraftList) {
+        return materialsList.stream().map(mat -> {
+                    BlueprintResult existingMat = selectedForCraftList.stream().filter(bp -> bp.getName().equals(mat.getName())).findFirst().orElse(null);
+                    if (Objects.nonNull(existingMat)) {
+                        if (Boolean.TRUE.equals(existingMat.getSelectedForCraft())) {
+                            return recalculateSubMaterialsCraftingPrices(existingMat.getMaterialsList(), selectedForCraftList).add(existingMat.getIndustryCosts());
+                        } else {
+                            return mat.getPrice().multiply(BigDecimal.valueOf(mat.getQuantity()));
+                        }
+                    } else {
+                        return mat.getPrice().multiply(BigDecimal.valueOf(mat.getQuantity()));
+                    }
+                })
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private List<BlueprintResult> updateList(List<BlueprintResult> blueprintDataResult, BlueprintRequest subMaterialsRequest,
+                                             Map<String, Integer> initialQuantities) {
+        List<BlueprintResult> tempList = new ArrayList<>();
+        BlueprintServiceImpl self = applicationContext.getBean(BlueprintServiceImpl.class);
+        Integer quant = calculateQuantity(blueprintDataResult, subMaterialsRequest.getBlueprintName());
+        BlueprintResult result = self.getBlueprintData(BlueprintRequest.builder()
+                .blueprintName(subMaterialsRequest.getBlueprintName())
+                .runs(quant)
+                .blueprintMe(subMaterialsRequest.getBlueprintMe())
+                .system(subMaterialsRequest.getSystem())
+                .tier(subMaterialsRequest.getTier())
+                .regionId(subMaterialsRequest.getRegionId())
+                .facilityTax(subMaterialsRequest.getFacilityTax())
+                .buildingRig(subMaterialsRequest.getBuildingRig())
+                .building(subMaterialsRequest.getBuilding())
+                .build());
+        blueprintDataResult.add(result);
+        tempList.add(blueprintDataResult.get(0));
+        blueprintDataResult.stream().skip(1).forEach(mat -> tempList.add(updateNeededMaterials(blueprintDataResult, mat, initialQuantities)));
+        return tempList;
+    }
+
+    private void adjustSelectedItems(List<BlueprintResult> originalData, BlueprintResult selectedItem) {
+        selectedItem.getMaterialsList().forEach(material -> {
+            BlueprintResult alreadyExist = originalData.stream().filter(mat -> mat.getName().equals(material.getName())).findFirst().orElse(null);
+            if (Objects.nonNull(alreadyExist)) {
+                alreadyExist.setSelectedForCraft(Boolean.FALSE);
+                adjustSelectedItems(originalData, alreadyExist);
+            }
+        });
+    }
+
+    private Integer calculateQuantity(List<BlueprintResult> originalData, String blueprintName) {
+        return originalData.stream().filter(mat -> mat.getSelectedForCraft() && mat.getMaterialsList().stream().anyMatch(m -> m.getName().equals(blueprintName)))
+                .flatMap(mat -> mat.getMaterialsList().stream()).filter(m -> m.getName().equals(blueprintName)).map(MaterialInfo::getQuantity).reduce(Integer::sum).orElse(0);
+    }
+
+    private BlueprintResult updateNeededMaterials(List<BlueprintResult> originalData, BlueprintResult material,
+                                                  Map<String, Integer> initialQuantities) {
+        BlueprintServiceImpl self = applicationContext.getBean(BlueprintServiceImpl.class);
+        Integer quant = calculateQuantity(originalData, material.getName());
+
+//        if (initialQuantities.containsKey(material.getName()) && !Objects.equals(initialQuantities.get(material.getName()), quant)) {
+        if (quant == 0 || Boolean.FALSE.equals(material.getSelectedForCraft())) {
+            return material.withSelectedForCraft(Boolean.FALSE);
+        }
+        return self.getBlueprintData(BlueprintRequest.builder()
+                .blueprintName(material.getName())
+                .runs(quant)
+                .blueprintMe(material.getBlueprintMaterialEfficiency())
+                .system(material.getSystem())
+                .regionId(material.getRegionId())
+                .facilityTax(material.getFacilityTax())
+                .buildingRig(material.getRigDiscount())
+                .building(material.getBuildingDiscount())
+                .tier(material.getTier())
+                .build());
+//        }
+//        return material;
     }
 }

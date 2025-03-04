@@ -10,10 +10,12 @@ import com.example.pandatribe.models.universe.SystemInfo;
 import com.example.pandatribe.repositories.interfaces.EveCustomRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.Tuple;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Repository
@@ -69,9 +71,12 @@ public class EveCustomRepositoryImpl implements EveCustomRepository {
 
     @Transactional
     public List<Blueprint> getBlueprints(){
-        String nativeQuery = "SELECT productTypeID FROM industryActivityProducts WHERE activityID = 1 OR activityID = 11";
-        List<Object> result = entityManager.createNativeQuery(nativeQuery).getResultList();
-        return result.stream().map(id-> Blueprint.builder().blueprint(getBlueprintName((Integer) id)).build()).collect(Collectors.toList());
+        String nativeQuery = "SELECT typeID, productTypeID FROM industryActivityProducts WHERE activityID = 1 OR activityID = 11";
+        List<Tuple> result = entityManager.createNativeQuery(nativeQuery, Tuple.class).getResultList();
+        return result.stream().map(row-> Blueprint.builder().bpId((Integer) row.get("typeID"))
+                        .blueprint(getBlueprintName((Integer) row.get("productTypeID"))).build())
+                .filter(name-> Objects.nonNull(name.getBlueprint()))
+                .filter(name-> !name.getBlueprint().contains("Edition")).toList();
     }
 
     @Transactional
@@ -80,7 +85,7 @@ public class EveCustomRepositoryImpl implements EveCustomRepository {
         String nativeQuery = "SELECT regionID, regionName FROM mapRegions ORDER BY regionName ASC";
         List<Object[]> result = entityManager.createNativeQuery(nativeQuery).getResultList();
         return result.stream().map(region -> Region.builder().regionId((Integer) region[0]).regionName((String) region[1]).build())
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Transactional
@@ -89,7 +94,7 @@ public class EveCustomRepositoryImpl implements EveCustomRepository {
         String nativeQuery = "SELECT stationID, stationName FROM staStations ORDER BY stationName ASC";
         List<Object[]> result = entityManager.createNativeQuery(nativeQuery).getResultList();
         return result.stream().map(station -> Station.builder().stationId((Long) station[0]).stationName((String) station[1]).build())
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override

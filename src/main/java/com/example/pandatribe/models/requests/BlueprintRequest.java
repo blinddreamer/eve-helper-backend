@@ -1,7 +1,9 @@
 package com.example.pandatribe.models.requests;
 
-import lombok.Data;
+import lombok.*;
 
+@Builder
+@AllArgsConstructor
 @Data
 public class BlueprintRequest {
     private String blueprintName;
@@ -14,4 +16,6 @@ public class BlueprintRequest {
     private Integer count;
     private Integer regionId;
     private Boolean init;
+    private String requestId;
+    private Integer tier;
 }
