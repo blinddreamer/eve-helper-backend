@@ -4,6 +4,7 @@ import com.example.pandatribe.models.BlueprintData;
 import com.example.pandatribe.models.industry.CostIndex;
 import com.example.pandatribe.models.industry.blueprints.BlueprintActivity;
 import com.example.pandatribe.models.industry.blueprints.EveType;
+import com.example.pandatribe.models.market.ItemPrice;
 import com.example.pandatribe.models.requests.BlueprintRequest;
 import com.example.pandatribe.models.requests.MaterialInfo;
 import com.example.pandatribe.models.results.Blueprint;
@@ -42,7 +43,9 @@ public class BlueprintServiceImpl implements BlueprintService {
     public static final String DEFAULT_SYSTEM = "Jita";
     public static final Integer DEFAULT_LOCATION_ID = 60003760;
     public static final String REACTION = "reaction";
-    public static final String ORDER_TYPE = "sell";
+    public static final String ORDER_TYPE_ALL = "all";
+    public static final String ORDER_TYPE_BUY = "buy";
+    public static final String ORDER_TYPE_SELL = "sell";
     public static final String MANUFACTURING = "manufacturing";
     private final MaterialService materialsService;
     private final MarketService marketService;
@@ -167,9 +170,11 @@ public class BlueprintServiceImpl implements BlueprintService {
             List<MaterialInfo> materialsList = materialsService.getMaterialsByActivity(matBlueprintId, craftCount, rigDiscount, blueprintMaterialEfficiency, buildingDiscount, systemInfo.getSecurity(), count, regionId, tier);
             String activity = blueprintActivity.getActivityId().equals(REACTION_ACTIVITY_ID) ? REACTION : MANUFACTURING;
             BigDecimal industryCosts = calculateIndustryTaxes(facilityTax, systemInfo.getSystemId(), materialsList, activity, buildingDiscount, count);
-            BigDecimal price = marketService
-                    .getItemSellOrderPrice(DEFAULT_LOCATION_ID, marketService.getItemMarketPrice(eveType.getTypeId(), regionId, ORDER_TYPE));
-
+            List<ItemPrice> itemPriceList = marketService.getItemMarketPrice(eveType.getTypeId(), regionId, ORDER_TYPE_ALL);
+            BigDecimal buyPrice = marketService
+                    .getItemPriceByOrderType(ORDER_TYPE_BUY, itemPriceList);
+            BigDecimal sellPrice = marketService
+                    .getItemPriceByOrderType(ORDER_TYPE_SELL, itemPriceList);
             return BlueprintResult.builder()
                     .id(eveType.getTypeId())
                     .name(blueprintName)
@@ -179,7 +184,8 @@ public class BlueprintServiceImpl implements BlueprintService {
                     .quantity(runs * count)
                     .activityId(blueprintActivity.getActivityId())
                     .materialsList(materialsList)
-                    .craftPrice(materialsList.stream().map(materialInfo -> materialInfo.getPrice().multiply(BigDecimal.valueOf(materialInfo.getQuantity()))).reduce(BigDecimal.ZERO, BigDecimal::add).add(industryCosts))
+                    .buyCraftPrice(materialsList.stream().map(materialInfo -> materialInfo.getBuyPrice().multiply(BigDecimal.valueOf(materialInfo.getQuantity()))).reduce(BigDecimal.ZERO, BigDecimal::add).add(industryCosts))
+                    .sellCraftPrice((materialsList.stream().map(materialInfo -> materialInfo.getSellPrice().multiply(BigDecimal.valueOf(materialInfo.getQuantity()))).reduce(BigDecimal.ZERO, BigDecimal::add).add(industryCosts)))
                     .industryCosts(industryCosts)
                     // .excessMaterials(Math.abs(craftQuantity >1 ? craftQuantity -(runs * count) : 0 ))
                     .craftQuantity(craftQuantity)
@@ -193,8 +199,10 @@ public class BlueprintServiceImpl implements BlueprintService {
                     .selectedForCraft(Boolean.TRUE)
                     .rigDiscount(rigDiscount)
                     .icon(eveType.getGroupId().equals(541) ? helper.generateRenderLink(eveType.getTypeId(), size) : helper.generateIconLink(eveType.getTypeId(), size))
-                    .sellPrice(price)
-                    .totalSellPrice(price.multiply(BigDecimal.valueOf(runs)).multiply(BigDecimal.valueOf(count)))
+                    .buyPrice(buyPrice)
+                    .totalBuyPrice(buyPrice.multiply(BigDecimal.valueOf(runs)).multiply(BigDecimal.valueOf(count)))
+                    .sellPrice(sellPrice)
+                    .totalSellPrice(sellPrice.multiply(BigDecimal.valueOf(runs)).multiply(BigDecimal.valueOf(count)))
                     .jobsCount(craftCount)
                     .build();
         }
@@ -219,21 +227,25 @@ public class BlueprintServiceImpl implements BlueprintService {
             originalData.stream().skip(1).forEach(mat -> tempList.add(updateNeededMaterials(originalData, mat, initialQuantities)));
             blueprintData = blueprintData.withBlueprintResult(tempList);
             BlueprintResult initialBlueprint = tempList.get(0);
-            BigDecimal price = recalculateMasterCraftingPrice(blueprintData).add(initialBlueprint.getIndustryCosts());
-            initialBlueprint.setCraftPrice(price);
+            BigDecimal buyCraftPrice = recalculateMasterCraftingPrice(blueprintData, true).add(initialBlueprint.getIndustryCosts());
+            BigDecimal sellCraftPrice = recalculateMasterCraftingPrice(blueprintData, false).add(initialBlueprint.getIndustryCosts());
+            initialBlueprint.setBuyCraftPrice(buyCraftPrice);
+            initialBlueprint.setSellCraftPrice(sellCraftPrice);
             return blueprintData.withBlueprintResult(tempList);
         } else {
 
             List<BlueprintResult> newData = updateList(blueprintData.getBlueprintResult(), subMaterialsRequest, initialQuantities);
 //            newData.get(0).setCraftPrice(recalculateMasterCraftingPrice(blueprintData).add(newData.get(0).getIndustryCosts()));
             BlueprintResult initialBlueprint = newData.get(0);
-            BigDecimal price = recalculateMasterCraftingPrice(blueprintData).add(initialBlueprint.getIndustryCosts());
-            initialBlueprint.setCraftPrice(price);
+            BigDecimal buyCraftPrice = recalculateMasterCraftingPrice(blueprintData, true).add(initialBlueprint.getIndustryCosts());
+            BigDecimal sellCraftPrice = recalculateMasterCraftingPrice(blueprintData, false).add(initialBlueprint.getIndustryCosts());
+            initialBlueprint.setBuyCraftPrice(buyCraftPrice);
+            initialBlueprint.setSellCraftPrice(sellCraftPrice);
             return blueprintData.withBlueprintResult(newData);
         }
     }
 
-    private BigDecimal recalculateMasterCraftingPrice(BlueprintData blueprintData) {
+    private BigDecimal recalculateMasterCraftingPrice(BlueprintData blueprintData, Boolean isBuyPrice) {
 
         List<MaterialInfo> initialMatList = blueprintData.getBlueprintResult().get(0).getMaterialsList();
         List<BlueprintResult> selectedForCraftList = blueprintData.getBlueprintResult();
@@ -241,28 +253,28 @@ public class BlueprintServiceImpl implements BlueprintService {
                     BlueprintResult existingMat = selectedForCraftList.stream().filter(bp -> bp.getName().equals(mat.getName())).findFirst().orElse(null);
                     if (Objects.nonNull(existingMat)) {
                         if (Boolean.TRUE.equals(existingMat.getSelectedForCraft())) {
-                            return recalculateSubMaterialsCraftingPrices(existingMat.getMaterialsList(), selectedForCraftList).add(existingMat.getIndustryCosts());
+                            return recalculateSubMaterialsCraftingPrices(existingMat.getMaterialsList(), selectedForCraftList, isBuyPrice).add(existingMat.getIndustryCosts());
                         } else {
-                            return mat.getPrice().multiply(BigDecimal.valueOf(mat.getQuantity()));
+                            return mat.getBuyPrice().multiply(BigDecimal.valueOf(mat.getQuantity()));
                         }
                     } else {
-                        return mat.getPrice().multiply(BigDecimal.valueOf(calculateQuantity(selectedForCraftList, mat.getName())));
+                        return mat.getBuyPrice().multiply(BigDecimal.valueOf(calculateQuantity(selectedForCraftList, mat.getName())));
                     }
                 })
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    private BigDecimal recalculateSubMaterialsCraftingPrices(List<MaterialInfo> materialsList, List<BlueprintResult> selectedForCraftList) {
+    private BigDecimal recalculateSubMaterialsCraftingPrices(List<MaterialInfo> materialsList, List<BlueprintResult> selectedForCraftList, Boolean isBuyPrice) {
         return materialsList.stream().map(mat -> {
                     BlueprintResult existingMat = selectedForCraftList.stream().filter(bp -> bp.getName().equals(mat.getName())).findFirst().orElse(null);
                     if (Objects.nonNull(existingMat)) {
                         if (Boolean.TRUE.equals(existingMat.getSelectedForCraft())) {
-                            return recalculateSubMaterialsCraftingPrices(existingMat.getMaterialsList(), selectedForCraftList).add(existingMat.getIndustryCosts());
+                            return recalculateSubMaterialsCraftingPrices(existingMat.getMaterialsList(), selectedForCraftList, isBuyPrice).add(existingMat.getIndustryCosts());
                         } else {
-                            return mat.getPrice().multiply(BigDecimal.valueOf(mat.getQuantity()));
+                            return mat.getBuyPrice().multiply(BigDecimal.valueOf(mat.getQuantity()));
                         }
                     } else {
-                        return mat.getPrice().multiply(BigDecimal.valueOf(mat.getQuantity()));
+                        return mat.getBuyPrice().multiply(BigDecimal.valueOf(mat.getQuantity()));
                     }
                 })
                 .reduce(BigDecimal.ZERO, BigDecimal::add);

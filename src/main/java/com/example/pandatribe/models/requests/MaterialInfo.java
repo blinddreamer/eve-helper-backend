@@ -17,7 +17,8 @@ public class MaterialInfo {
     private String icon;
     private String name;
     private Integer quantity;
-    private BigDecimal price;
+    private BigDecimal buyPrice;
+    private BigDecimal sellPrice;
     private Double volume;
     private Boolean isCreatable;
     private BigDecimal adjustedPrice;
