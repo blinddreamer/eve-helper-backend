@@ -178,7 +178,7 @@ public class BlueprintServiceImpl implements BlueprintService {
             Integer matBlueprintId = blueprintActivity.getBlueprintId();
             Integer craftCount = (int) Math.ceil((double) runs / blueprintActivity.getCraftQuantity());
             Double craftQuantity = Optional.of(blueprintActivity).map(b -> Double.parseDouble(b.getCraftQuantity().toString())).orElse(1.0);
-            List<MaterialInfo> materialsList = materialsService.getMaterialsByActivity(matBlueprintId, runs, rigDiscount, blueprintMaterialEfficiency, buildingDiscount, systemInfo.getSecurity(), count, regionId, tier);
+            List<MaterialInfo> materialsList = materialsService.getMaterialsByActivity(matBlueprintId, craftCount, rigDiscount, blueprintMaterialEfficiency, buildingDiscount, systemInfo.getSecurity(), count, regionId, tier);
             String activity = blueprintActivity.getActivityId().equals(REACTION_ACTIVITY_ID) ? REACTION : MANUFACTURING;
             BigDecimal industryCosts = calculateIndustryTaxes(facilityTax, systemInfo.getSystemId(), materialsList, activity, buildingDiscount, count);
             BigDecimal price = marketService
