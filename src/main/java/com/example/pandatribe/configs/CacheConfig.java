@@ -1,5 +1,8 @@
 package com.example.pandatribe.configs;
 
+import com.example.pandatribe.services.BlueprintServiceImpl;
+import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
@@ -7,8 +10,16 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class CacheConfig {
-private static final Logger LOGGER = LoggerFactory.getLogger(CacheConfig.class);
+    private final BlueprintServiceImpl blueprintService;
+    private static final Logger LOGGER = LoggerFactory.getLogger(CacheConfig.class);
+
+    @PostConstruct
+    public void initiateBlueprintCache() {
+        LOGGER.info("Preloading blueprints into cache...");
+        blueprintService.getEveBlueprints();
+    }
     @CacheEvict(cacheNames = "cacheCalculator", allEntries = true)
     public void evictCacheCalculator(){
         LOGGER.info("Cache cacheCalculator was cleared");

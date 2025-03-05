@@ -73,27 +73,24 @@ public class EveBlueprintController {
     }
 
     @GetMapping("systems")
-    @Cacheable("systemNames")
     public ResponseEntity<List<SystemName>> getEveSystems(){
         LOGGER.debug("REQUEST for systems received");
         return ResponseEntity.ok(blueprintService.getEveSystems());
     }
+
     @GetMapping("blueprints")
-    @Cacheable("blueprints")
     public ResponseEntity<GetBlueprintsResult> getEveBlueprints(){
         LOGGER.debug("REQUEST for blueprints received");
         return ResponseEntity.ok(blueprintService.getEveBlueprints());
     }
 
     @GetMapping("regions")
-    @Cacheable("regions")
     public ResponseEntity<List<Region>> getEveRegions(){
         LOGGER.debug("REQUEST for regions received.");
         return ResponseEntity.ok(blueprintService.getEveRegions());
     }
 
     @GetMapping("stations")
-    @Cacheable("stations")
     public ResponseEntity<List<Station>> getEveStations(){
         LOGGER.debug("REQUEST for stations received.");
         return ResponseEntity.ok(blueprintService.getEveStations());

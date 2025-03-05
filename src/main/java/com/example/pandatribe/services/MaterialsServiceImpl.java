@@ -117,7 +117,7 @@ public class MaterialsServiceImpl implements MaterialService {
                                 .filter(m-> m.getTypeId().equals(eveType.get().getTypeId()))
                                     .findFirst()
                                     .map(MarketPriceData::getAdjustedPrice)
-                                    .orElse(BigDecimal.ZERO).multiply(BigDecimal.valueOf(matQuantity)))
+                                    .orElse(BigDecimal.ZERO).multiply(BigDecimal.valueOf((long)material.getQuantity()*quantity)))
                             .isCreatable(isCreatable(blueprintActivity))
                             .activityId(eveType.get().getTypeName().contains("Fuel Block") ? 105 : Optional.ofNullable(blueprintActivity).map(BlueprintActivity::getActivityId).orElse(0))
                             .tier(eveType.get().getTypeName().contains("Fuel Block")? 105 : initialTier + 1)

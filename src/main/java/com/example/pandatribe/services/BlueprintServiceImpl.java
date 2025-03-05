@@ -21,6 +21,7 @@ import com.example.pandatribe.services.contracts.IndustryService;
 import com.example.pandatribe.services.contracts.MarketService;
 import com.example.pandatribe.services.contracts.MaterialService;
 import com.example.pandatribe.utils.Helper;
+import jakarta.annotation.PostConstruct;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,7 +54,6 @@ public class BlueprintServiceImpl implements BlueprintService {
     private final BlueprintDataRepository blueprintDataRepository;
     private final ApplicationContext applicationContext;
 
-
     @Override
     public BlueprintData getInitialBlueprintData(BlueprintRequest searchDto) {
         BlueprintServiceImpl self = applicationContext.getBean(BlueprintServiceImpl.class);
@@ -61,22 +61,9 @@ public class BlueprintServiceImpl implements BlueprintService {
         if (Objects.isNull(initialBlueprint)) {
             return null;
         }
-        List<BlueprintResult> blueprintResults = new ArrayList<>();
-//        initialBlueprint.getMaterialsList().forEach(material -> {
-//            BlueprintResult result = BlueprintResult.builder()
-//                    .name(material.getName())
-//                    .tier(material.getTier())
-//                    .volume(material.getVolume())
-//                    .sellPrice(material.getPrice())
-//                    .adjustedPrice(material.getAdjustedPrice())
-//                    .build();
-//            blueprintResults.add(result);
-//        });
-        blueprintResults.add(initialBlueprint);
         return blueprintDataRepository.saveAndFlush(
                 BlueprintData.builder().id(UUID.randomUUID().toString())
-                        //        .initialBlueprint(initialBlueprint)
-                        .blueprintResult(blueprintResults)
+                        .blueprintResult(Collections.singletonList(initialBlueprint))
                         .creationDate(LocalDate.now()).build());
     }
 
@@ -99,6 +86,7 @@ public class BlueprintServiceImpl implements BlueprintService {
     }
 
     @Override
+    @Cacheable("blueprints")
     public GetBlueprintsResult getEveBlueprints() {
         List<Blueprint> blueprints = eveCustomRepository.getBlueprints();
         LOGGER.info("Blueprints loaded - {}", !blueprints.isEmpty());
@@ -110,6 +98,7 @@ public class BlueprintServiceImpl implements BlueprintService {
     }
 
     @Override
+    @Cacheable("systemNames")
     public List<SystemName> getEveSystems() {
         List<SystemName> systems = eveCustomRepository.getSystems();
         LOGGER.info("Systems loaded - {}", !systems.isEmpty());
@@ -117,6 +106,7 @@ public class BlueprintServiceImpl implements BlueprintService {
     }
 
     @Override
+    @Cacheable("regions")
     public List<Region> getEveRegions() {
         List<Region> regions = eveCustomRepository.getRegions();
         LOGGER.info("Regions loaded - {}", !regions.isEmpty());
@@ -124,6 +114,7 @@ public class BlueprintServiceImpl implements BlueprintService {
     }
 
     @Override
+    @Cacheable("stations")
     public List<Station> getEveStations() {
         List<Station> stations = eveCustomRepository.getStations();
         LOGGER.info("Stations loaded - {}", !stations.isEmpty());
