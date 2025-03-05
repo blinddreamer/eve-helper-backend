@@ -21,7 +21,6 @@ import com.example.pandatribe.services.contracts.IndustryService;
 import com.example.pandatribe.services.contracts.MarketService;
 import com.example.pandatribe.services.contracts.MaterialService;
 import com.example.pandatribe.utils.Helper;
-import jakarta.annotation.PostConstruct;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,7 +85,6 @@ public class BlueprintServiceImpl implements BlueprintService {
     }
 
     @Override
-    @Cacheable("blueprints")
     public GetBlueprintsResult getEveBlueprints() {
         List<Blueprint> blueprints = eveCustomRepository.getBlueprints();
         LOGGER.info("Blueprints loaded - {}", !blueprints.isEmpty());
@@ -98,7 +96,6 @@ public class BlueprintServiceImpl implements BlueprintService {
     }
 
     @Override
-    @Cacheable("systemNames")
     public List<SystemName> getEveSystems() {
         List<SystemName> systems = eveCustomRepository.getSystems();
         LOGGER.info("Systems loaded - {}", !systems.isEmpty());
@@ -106,7 +103,6 @@ public class BlueprintServiceImpl implements BlueprintService {
     }
 
     @Override
-    @Cacheable("regions")
     public List<Region> getEveRegions() {
         List<Region> regions = eveCustomRepository.getRegions();
         LOGGER.info("Regions loaded - {}", !regions.isEmpty());
@@ -114,7 +110,6 @@ public class BlueprintServiceImpl implements BlueprintService {
     }
 
     @Override
-    @Cacheable("stations")
     public List<Station> getEveStations() {
         List<Station> stations = eveCustomRepository.getStations();
         LOGGER.info("Stations loaded - {}", !stations.isEmpty());
