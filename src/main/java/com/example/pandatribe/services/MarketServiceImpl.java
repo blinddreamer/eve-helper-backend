@@ -11,10 +11,8 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -37,7 +35,7 @@ public class MarketServiceImpl implements MarketService {
     @Override
     public BigDecimal getItemSellOrderPrice(Integer locationId, List<ItemPrice> itemPriceList) {
         return itemPriceList.stream()
-             //   .filter(itemPrice -> Objects.equals(itemPrice.getLocationId(), locationId))
+               // .filter(itemPrice -> Objects.equals(itemPrice.getLocationId(), locationId))
                 .map(ItemPrice::getPrice)
                 .sorted()
                 .findFirst().orElse(BigDecimal.ZERO);
@@ -46,11 +44,13 @@ public class MarketServiceImpl implements MarketService {
     public BigDecimal getItemPriceByOrderType(String orderType, List<ItemPrice> itemPriceList){
         if (orderType.equals("buy")) {
            return itemPriceList.stream()
+              //     .filter(itemPrice -> Objects.equals(itemPrice.getLocationId(), locationId))
                    .filter(itemPrice -> Objects.equals(itemPrice.getIsBuyOrder(), true))
                    .map(ItemPrice::getPrice).max(BigDecimal::compareTo)
                    .orElse(BigDecimal.ZERO);
         }
        return itemPriceList.stream()
+           //     .filter(itemPrice -> Objects.equals(itemPrice.getLocationId(), locationId))
                 .filter(itemPrice ->  Objects.equals(itemPrice.getIsBuyOrder(), false))
                 .map(ItemPrice::getPrice)
                 .sorted()

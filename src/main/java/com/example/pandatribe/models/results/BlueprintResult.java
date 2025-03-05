@@ -18,9 +18,12 @@ public class BlueprintResult {
     private Integer quantity;
     private Integer jobsCount;
     private String icon;
-    private BigDecimal craftPrice;
+    private BigDecimal sellCraftPrice;
+    private BigDecimal buyCraftPrice;
     private BigDecimal sellPrice;
     private BigDecimal totalSellPrice;
+    private BigDecimal totalBuyPrice;
+    private BigDecimal buyPrice;
     private List<MaterialInfo> materialsList;
     private BigDecimal adjustedPrice;
     private Double excessMaterials;

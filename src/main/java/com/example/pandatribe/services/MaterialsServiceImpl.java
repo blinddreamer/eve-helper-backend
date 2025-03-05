@@ -1,21 +1,19 @@
 package com.example.pandatribe.services;
 
-import com.example.pandatribe.models.requests.MaterialInfo;
-import com.example.pandatribe.models.results.BlueprintResult;
 import com.example.pandatribe.models.industry.BuildingBonus;
 import com.example.pandatribe.models.industry.RigBonus;
 import com.example.pandatribe.models.industry.blueprints.BlueprintActivity;
 import com.example.pandatribe.models.industry.blueprints.EveType;
-import com.example.pandatribe.models.market.ItemPrice;
 import com.example.pandatribe.models.industry.blueprints.Material;
+import com.example.pandatribe.models.market.ItemPrice;
 import com.example.pandatribe.models.market.MarketPriceData;
+import com.example.pandatribe.models.requests.MaterialInfo;
 import com.example.pandatribe.repositories.interfaces.EveCustomRepository;
 import com.example.pandatribe.repositories.interfaces.EveMaterialsRepository;
 import com.example.pandatribe.repositories.interfaces.EveTypesRepository;
 import com.example.pandatribe.services.contracts.MarketService;
 import com.example.pandatribe.services.contracts.MaterialService;
 import com.example.pandatribe.utils.Helper;
-import jakarta.persistence.criteria.CriteriaBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -23,13 +21,16 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 public class MaterialsServiceImpl implements MaterialService {
     public static final Integer LOCATION_ID = 60003760;
-    public static final String ORDER_TYPE = "sell";
+    public static final String ORDER_TYPE = "all";
     private final EveTypesRepository eveTypesRepository;
     private final EveMaterialsRepository materialBlueprintRepository;
     private final EveCustomRepository eveCustomRepository;
@@ -112,7 +113,8 @@ public class MaterialsServiceImpl implements MaterialService {
                             .name(eveType.get().getTypeName())
                             .quantity(matQuantity*blueprintCount)
                             .volume(Objects.nonNull(volume) ? volume : eveType.get().getVolume())
-                            .price(marketService.getItemSellOrderPrice(LOCATION_ID, marketItemPriceData))
+                            .buyPrice(marketService.getItemPriceByOrderType("buy", marketItemPriceData))
+                            .sellPrice(marketService.getItemPriceByOrderType("sell", marketItemPriceData))
                             .adjustedPrice(marketPriceData.stream()
                                 .filter(m-> m.getTypeId().equals(eveType.get().getTypeId()))
                                     .findFirst()

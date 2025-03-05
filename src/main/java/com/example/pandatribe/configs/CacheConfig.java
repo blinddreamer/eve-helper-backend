@@ -36,9 +36,13 @@ public class CacheConfig {
     }
 
     @Scheduled(cron = "0 0 * * * *") // every hour
-    public void triggerEvictCache(){
-        evictCacheMarketPrices();
+    public void triggerEvictCacheHourly(){
         evictCacheCostIndexes();
+    }
+
+    @Scheduled(cron = "0 0 4 * * *") // every everyDay at 4
+    public void triggerEvictCacheDaily(){
+        evictCacheMarketPrices();
     }
 
 }
