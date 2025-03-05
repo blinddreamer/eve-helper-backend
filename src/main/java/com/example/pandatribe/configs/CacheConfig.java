@@ -28,13 +28,13 @@ private static final Logger LOGGER = LoggerFactory.getLogger(CacheConfig.class);
     @Scheduled(fixedRate = 900_000) // 15 minutes = 900,000 milliseconds
     public void triggerEvictCacheCalculator(){
         evictCacheCalculator();
+        evictCacheItemMarketPrice();
     }
 
     @Scheduled(cron = "0 0 * * * *") // every hour
     public void triggerEvictCache(){
         evictCacheMarketPrices();
         evictCacheCostIndexes();
-        evictCacheItemMarketPrice();
     }
 
 }

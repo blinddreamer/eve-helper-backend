@@ -142,7 +142,7 @@ public class BlueprintServiceImpl implements BlueprintService {
                 .map(CostIndex::getCostIndex)
                 .orElse(0.0);
         BigDecimal systemCost = eiv.multiply(BigDecimal.valueOf(costIndex));
-        BigDecimal buildingCostReduction = BigDecimal.valueOf(buildingBonus).divide(BigDecimal.valueOf(100), RoundingMode.CEILING).multiply(systemCost);
+        BigDecimal buildingCostReduction = BigDecimal.valueOf(buildingBonus).divide(BigDecimal.valueOf(100)).multiply(systemCost);
         BigDecimal facilityTax = BigDecimal.valueOf(facilityPercent / 100).multiply(eiv).setScale(0, RoundingMode.CEILING);
         BigDecimal surChargeTax = BigDecimal.valueOf(surcharge / 100).multiply(eiv).setScale(0, RoundingMode.CEILING);
         BigDecimal finalPrice = (systemCost.subtract(buildingCostReduction)).add(facilityTax).add(surChargeTax);
