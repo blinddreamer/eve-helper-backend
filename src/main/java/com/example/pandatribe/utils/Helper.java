@@ -21,6 +21,7 @@ public class Helper {
         put(4, BuildingBonus.builder().costReduction(0).materialReduction(0).build());
         put(5, BuildingBonus.builder().costReduction(0).materialReduction(0).build());
     }};
+
     private final HashMap<Integer, RigBonus> rigBonuses = new HashMap<>() {{
         put(0, RigBonus.builder().materialReduction(0.0).highSecMultiplier(1.0).lowSecMultiplier(1.9).nullSecMultiplier(2.1).build());
         put(1, RigBonus.builder().materialReduction(2.0).highSecMultiplier(1.0).lowSecMultiplier(1.9).nullSecMultiplier(2.1).build());
@@ -51,7 +52,7 @@ public class Helper {
     }
 
     public RigBonus getRigBonus(Integer index, Integer building){
-        index = building > 2 ? index + 2 : index;
+        index = building > 3 ? index + 2 : index;
         return rigBonuses.get(index);
     }
     private String generateRandomCodeVerifier() {

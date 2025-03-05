@@ -15,7 +15,7 @@ public class ItemPrice {
     @JsonProperty(value = "issued")
     private LocalDate issued;
     @JsonProperty(value = "location_id")
-    private Integer locationId;
+    private Long locationId;
     @JsonProperty(value = "min_volume")
     private Integer minVolume;
     @JsonProperty(value = "order_id")

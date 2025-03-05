@@ -21,26 +21,42 @@ public class MarketServiceImpl implements MarketService {
 
     private final EveInteractor eveInteractor;
     public static final String DATA_SOURCE = "tranquility";
-    public static final String ORDER_TYPE = "sell";
+
 
 
     @Override
-    public List<ItemPrice> getItemMarketPrice(Integer typeId, Integer regionId) {
-        List<ItemPrice> itemPriceList = eveInteractor.getItemMarketPrice(regionId,DATA_SOURCE,ORDER_TYPE,typeId) ;
+    @Cacheable(value = "cacheItemMarketPrice")
+    public List<ItemPrice> getItemMarketPrice(Integer typeId, Integer regionId , String orderType) {
+        List<ItemPrice> itemPriceList = eveInteractor.getItemMarketPrice(regionId,DATA_SOURCE,orderType,typeId) ;
         LOGGER.info("Item {} prices obtained {}", typeId, !itemPriceList.isEmpty());
         return itemPriceList;
     }
 
     @Override
-    public BigDecimal getItemPrice(Integer locationId, List<ItemPrice> itemPriceList) {
+    public BigDecimal getItemSellOrderPrice(Integer locationId, List<ItemPrice> itemPriceList) {
         return itemPriceList.stream()
-             //   .filter(itemPrice -> Objects.equals(itemPrice.getLocationId(), locationId))
+               // .filter(itemPrice -> Objects.equals(itemPrice.getLocationId(), locationId))
                 .map(ItemPrice::getPrice)
                 .sorted()
                 .findFirst().orElse(BigDecimal.ZERO);
 
     }
-
+    public BigDecimal getItemPriceByOrderType(String orderType, List<ItemPrice> itemPriceList){
+        if (orderType.equals("buy")) {
+           return itemPriceList.stream()
+              //     .filter(itemPrice -> Objects.equals(itemPrice.getLocationId(), locationId))
+                   .filter(itemPrice -> Objects.equals(itemPrice.getIsBuyOrder(), true))
+                   .map(ItemPrice::getPrice).max(BigDecimal::compareTo)
+                   .orElse(BigDecimal.ZERO);
+        }
+       return itemPriceList.stream()
+           //     .filter(itemPrice -> Objects.equals(itemPrice.getLocationId(), locationId))
+                .filter(itemPrice ->  Objects.equals(itemPrice.getIsBuyOrder(), false))
+                .map(ItemPrice::getPrice)
+                .sorted()
+                .findFirst()
+               .orElse(BigDecimal.ZERO);
+    }
     @Override
     @Cacheable("cacheMarketPrices")
     public List<MarketPriceData> getMarketPriceData(){

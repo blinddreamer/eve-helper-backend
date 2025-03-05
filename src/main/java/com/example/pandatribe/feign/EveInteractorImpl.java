@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Component
 @AllArgsConstructor
@@ -31,7 +32,9 @@ public class EveInteractorImpl implements EveInteractor {
         Map<String, Object> queryParams = new HashMap<>();
         queryParams.put("datasource",dataSource);
         queryParams.put("order_type",orderType);
-        queryParams.put("type_id",typeId);
+        if(Objects.nonNull(typeId)){
+            queryParams.put("type_id",typeId);
+        }
         return feign.getRestClient(EveApiList.class,API_ADDRESS).getMarketData(regionId, queryParams);
     }
 

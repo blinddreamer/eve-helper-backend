@@ -7,9 +7,11 @@ import java.math.BigDecimal;
 import java.util.List;
 
 public interface MarketService {
-    List<ItemPrice> getItemMarketPrice(Integer typeId, Integer regionId);
+    List<ItemPrice> getItemMarketPrice(Integer typeId, Integer regionId, String orderType);
 
-    BigDecimal getItemPrice(Integer locationId, List<ItemPrice> itemPriceList);
+    BigDecimal getItemSellOrderPrice(Integer locationId, List<ItemPrice> itemPriceList);
 
     List<MarketPriceData> getMarketPriceData();
+
+    BigDecimal getItemPriceByOrderType(String orderType, List<ItemPrice> itemPriceList);
 }
