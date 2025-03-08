@@ -20,4 +20,5 @@ public interface EveCustomRepository {
     List<Region> getRegions();
     List<Station> getStations();
     List<Category> getCategories();
+    String getRegion(Integer regionId);
 }

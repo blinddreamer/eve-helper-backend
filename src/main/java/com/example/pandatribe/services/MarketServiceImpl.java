@@ -41,16 +41,16 @@ public class MarketServiceImpl implements MarketService {
                 .findFirst().orElse(BigDecimal.ZERO);
 
     }
-    public BigDecimal getItemPriceByOrderType(String orderType, List<ItemPrice> itemPriceList){
+    public BigDecimal getItemPriceByOrderType(String orderType, List<ItemPrice> itemPriceList, Long locationId) {
         if (orderType.equals("buy")) {
            return itemPriceList.stream()
-              //     .filter(itemPrice -> Objects.equals(itemPrice.getLocationId(), locationId))
+                   .filter(itemPrice -> Objects.equals(itemPrice.getLocationId(), locationId))
                    .filter(itemPrice -> Objects.equals(itemPrice.getIsBuyOrder(), true))
                    .map(ItemPrice::getPrice).max(BigDecimal::compareTo)
                    .orElse(BigDecimal.ZERO);
         }
        return itemPriceList.stream()
-           //     .filter(itemPrice -> Objects.equals(itemPrice.getLocationId(), locationId))
+                .filter(itemPrice -> Objects.equals(itemPrice.getLocationId(), locationId))
                 .filter(itemPrice ->  Objects.equals(itemPrice.getIsBuyOrder(), false))
                 .map(ItemPrice::getPrice)
                 .sorted()

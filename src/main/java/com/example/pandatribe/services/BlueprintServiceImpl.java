@@ -41,7 +41,7 @@ public class BlueprintServiceImpl implements BlueprintService {
     public static final Integer REACTION_ACTIVITY_ID = 11;
     public static final Integer REGION_ID = 10000002;
     public static final String DEFAULT_SYSTEM = "Jita";
-    public static final Integer DEFAULT_LOCATION_ID = 60003760;
+    public static final Long DEFAULT_LOCATION_ID = Long.parseLong( "60003760");
     public static final String REACTION = "reaction";
     public static final String ORDER_TYPE_ALL = "all";
     public static final String ORDER_TYPE_BUY = "buy";
@@ -114,7 +114,7 @@ public class BlueprintServiceImpl implements BlueprintService {
 
     @Override
     public List<Station> getEveStations() {
-        List<Station> stations = eveCustomRepository.getStations();
+        List<Station> stations = eveCustomRepository.getStations().stream().sorted(Comparator.comparing(Station::getRegionName)).toList();
         LOGGER.info("Stations loaded - {}", !stations.isEmpty());
         return stations;
     }
@@ -150,7 +150,8 @@ public class BlueprintServiceImpl implements BlueprintService {
         Double facilityTax = Optional.ofNullable(blueprintRequest.getFacilityTax()).orElse(0.0);
         String blueprintName = blueprintRequest.getBlueprintName();
         Integer count = Optional.ofNullable(blueprintRequest.getCount()).orElse(1);
-        Integer regionId = Optional.ofNullable(blueprintRequest.getRegionId()).orElse(REGION_ID);
+        Long locationId = Optional.ofNullable(blueprintRequest.getRegionId()).map(s-> s.split("_")[1]).map(Long::parseLong).orElse(DEFAULT_LOCATION_ID);
+        Integer regionId = Optional.ofNullable(blueprintRequest.getRegionId()).map(s-> s.split("_")[0]).map(Integer::parseInt).orElse(REGION_ID);
         Integer tier = Optional.ofNullable(blueprintRequest.getTier()).orElse(0);
         EveType eveType = repository.findEveTypeByTypeName(blueprintName).stream().findFirst().orElse(null);
         if (Objects.isNull(eveType)) {
@@ -167,14 +168,14 @@ public class BlueprintServiceImpl implements BlueprintService {
             Integer matBlueprintId = blueprintActivity.getBlueprintId();
             Integer craftCount = (int) Math.ceil((double) runs / blueprintActivity.getCraftQuantity());
             Double craftQuantity = Optional.of(blueprintActivity).map(b -> Double.parseDouble(b.getCraftQuantity().toString())).orElse(1.0);
-            List<MaterialInfo> materialsList = materialsService.getMaterialsByActivity(matBlueprintId, craftCount, rigDiscount, blueprintMaterialEfficiency, buildingDiscount, systemInfo.getSecurity(), count, regionId, tier);
+            List<MaterialInfo> materialsList = materialsService.getMaterialsByActivity(matBlueprintId, craftCount, rigDiscount, blueprintMaterialEfficiency, buildingDiscount, systemInfo.getSecurity(), count, regionId, tier, locationId);
             String activity = blueprintActivity.getActivityId().equals(REACTION_ACTIVITY_ID) ? REACTION : MANUFACTURING;
             BigDecimal industryCosts = calculateIndustryTaxes(facilityTax, systemInfo.getSystemId(), materialsList, activity, buildingDiscount, count);
             List<ItemPrice> itemPriceList = marketService.getItemMarketPrice(eveType.getTypeId(), regionId, ORDER_TYPE_ALL);
             BigDecimal buyPrice = marketService
-                    .getItemPriceByOrderType(ORDER_TYPE_BUY, itemPriceList);
+                    .getItemPriceByOrderType(ORDER_TYPE_BUY, itemPriceList, locationId);
             BigDecimal sellPrice = marketService
-                    .getItemPriceByOrderType(ORDER_TYPE_SELL, itemPriceList);
+                    .getItemPriceByOrderType(ORDER_TYPE_SELL, itemPriceList, locationId);
             return BlueprintResult.builder()
                     .id(eveType.getTypeId())
                     .name(blueprintName)
@@ -193,7 +194,7 @@ public class BlueprintServiceImpl implements BlueprintService {
                     .isFuel(blueprintName.contains("Fuel Block"))
                     .blueprintMaterialEfficiency(blueprintMaterialEfficiency)
                     .facilityTax(facilityTax)
-                    .regionId(regionId)
+                    .regionStation(blueprintRequest.getRegionId())
                     .system(system)
                     .buildingDiscount(buildingDiscount)
                     .selectedForCraft(Boolean.TRUE)
@@ -331,7 +332,7 @@ public class BlueprintServiceImpl implements BlueprintService {
                 .runs(quant)
                 .blueprintMe(material.getBlueprintMaterialEfficiency())
                 .system(material.getSystem())
-                .regionId(material.getRegionId())
+                .regionId(material.getRegionStation())
                 .facilityTax(material.getFacilityTax())
                 .buildingRig(material.getRigDiscount())
                 .building(material.getBuildingDiscount())
