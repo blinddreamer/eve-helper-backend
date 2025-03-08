@@ -8,4 +8,6 @@ import lombok.Data;
 public class Station {
     private Long stationId;
     private String stationName;
+    private Integer regionId;
+    private String regionName;
 }

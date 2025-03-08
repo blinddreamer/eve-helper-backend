@@ -42,9 +42,10 @@ public class MaterialsServiceImpl implements MaterialService {
 
     @Override
     @Transactional
-    public List<MaterialInfo> getMaterialsByActivity(Integer blueprintId, Integer quantity, Integer discountBR, Integer materialEfficiency, Integer discountB, Double security, Integer blueprintCount, Integer regionId, Integer initialTier) {
+    public List<MaterialInfo> getMaterialsByActivity(Integer blueprintId, Integer quantity, Integer discountBR, Integer materialEfficiency, Integer discountB, Double security, Integer blueprintCount, Integer regionId, Integer initialTier,
+                                                     Long locationId) {
         List<Material> materials = materialBlueprintRepository.findMaterialsByActivity(blueprintId);
-        return getSimpleMaterials(materials, quantity, discountBR, materialEfficiency, discountB, security, blueprintCount, regionId, initialTier);
+        return getSimpleMaterials(materials, quantity, discountBR, materialEfficiency, discountB, security, blueprintCount, regionId, initialTier, locationId);
     }
 
     @Override
@@ -61,7 +62,8 @@ public class MaterialsServiceImpl implements MaterialService {
                 .orElse(1);
     }
 
-    private List<MaterialInfo> getSimpleMaterials(List<Material> materials, Integer quantity, Integer discountBR, Integer materialEfficiency, Integer discountB, Double security, Integer blueprintCount, Integer regionId, Integer initialTier) {
+    private List<MaterialInfo> getSimpleMaterials(List<Material> materials, Integer quantity, Integer discountBR, Integer materialEfficiency, Integer discountB, Double security, Integer blueprintCount, Integer regionId, Integer initialTier,
+    Long locationId) {
         List<MaterialInfo> materialList = new ArrayList<>();
         BuildingBonus buildingBonus = helper.getBuildingBonus(discountB);
         RigBonus rigBonus = helper.getRigBonus(discountBR, discountB);
@@ -113,8 +115,8 @@ public class MaterialsServiceImpl implements MaterialService {
                             .name(eveType.get().getTypeName())
                             .quantity(matQuantity*blueprintCount)
                             .volume(Objects.nonNull(volume) ? volume : eveType.get().getVolume())
-                            .buyPrice(marketService.getItemPriceByOrderType("buy", marketItemPriceData))
-                            .sellPrice(marketService.getItemPriceByOrderType("sell", marketItemPriceData))
+                            .buyPrice(marketService.getItemPriceByOrderType("buy", marketItemPriceData,locationId))
+                            .sellPrice(marketService.getItemPriceByOrderType("sell", marketItemPriceData, locationId))
                             .adjustedPrice(marketPriceData.stream()
                                 .filter(m-> m.getTypeId().equals(eveType.get().getTypeId()))
                                     .findFirst()

@@ -41,5 +41,5 @@ public class BlueprintResult {
     private Integer buildingDiscount;
     private String system;
     private Double facilityTax;
-    private Integer regionId;
+    private String regionStation;
 }

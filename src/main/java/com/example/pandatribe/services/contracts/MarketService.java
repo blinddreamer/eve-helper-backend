@@ -13,5 +13,5 @@ public interface MarketService {
 
     List<MarketPriceData> getMarketPriceData();
 
-    BigDecimal getItemPriceByOrderType(String orderType, List<ItemPrice> itemPriceList);
+    BigDecimal getItemPriceByOrderType(String orderType, List<ItemPrice> itemPriceList, Long locationId);
 }
