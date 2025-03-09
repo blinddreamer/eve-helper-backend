@@ -94,10 +94,21 @@ public class EveCustomRepositoryImpl implements EveCustomRepository {
     @Transactional
     @Override
     public List<Station> getStations() {
-        String nativeQuery = "SELECT stationID, stationName FROM staStations ORDER BY stationName ASC";
-        List<Object[]> result = entityManager.createNativeQuery(nativeQuery).getResultList();
-        return result.stream().map(station -> Station.builder().stationId((Long) station[0]).stationName((String) station[1]).build())
+        String nativeQuery = "SELECT stationID, stationName, regionID FROM staStations WHERE stationID = 60004588 OR stationID = 60008494 OR stationID = 60011866 OR stationID = 60005686 OR stationID = 60003760 ORDER BY stationName ASC";
+        List<Tuple> result = entityManager.createNativeQuery(nativeQuery, Tuple.class).getResultList();
+        return result.stream().map(row -> Station.builder().stationId((Long) row.get("stationID"))
+                        .stationName((String) row.get("stationName"))
+                        .regionId((Integer) row.get("regionID"))
+                        .regionName(getRegion((Integer) row.get("regionID")))
+                        .build())
                 .toList();
+    }
+
+    @Override
+    public String getRegion(Integer regionId) {
+        String nativeQuery = "SELECT regionName FROM mapRegions WHERE regionID = :regionId";
+        List<Object> result = entityManager.createNativeQuery(nativeQuery).setParameter("regionId",regionId).getResultList();
+        return result.isEmpty() ? null : result.get(0).toString();
     }
 
     @Override

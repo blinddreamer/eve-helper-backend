@@ -14,7 +14,7 @@ public class BlueprintRequest {
     private Integer buildingRig;
     private Integer building;
     private Integer count;
-    private Integer regionId;
+    private String regionId;
     private Boolean init;
     private String requestId;
     private Integer tier;

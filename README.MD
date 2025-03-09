@@ -1,7 +1,5 @@
 # EVE Helper Backend - Industry Calculator
 
-![EVE Online](https://upload.wikimedia.org/wikipedia/commons/0/05/Eve_Online_logo.svg)
-
 **EVE Helper Backend** is a Spring Boot-based backend service designed for calculating industry-related activities in **EVE Online**. It helps players optimize manufacturing, blueprint efficiency, and market-related decisions.
 
 ## ✨ Features

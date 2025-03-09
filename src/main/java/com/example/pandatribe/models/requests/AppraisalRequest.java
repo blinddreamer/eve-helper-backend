@@ -7,5 +7,9 @@ import java.util.List;
 @Data
 public class AppraisalRequest {
     List<AppraisalRequestEntity> appraisalRequestEntityList;
-    Integer regionId;
+    String regionId;
+    Double pricePercentage;
+    String transactionType;
+    String comment;
+    String system;
 }

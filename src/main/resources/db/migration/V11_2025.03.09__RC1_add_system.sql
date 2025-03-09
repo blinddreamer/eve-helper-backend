@@ -1,0 +1,1 @@
+ALTER TABLE evesde.appraisals ADD COLUMN IF NOT EXISTS system VARCHAR(100) NULL;

@@ -1,12 +1,16 @@
 package com.example.pandatribe.models.results;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 
 @Data
 @Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class AppraisalResultEntity {
     private String icon;
     private String item;
@@ -16,6 +20,6 @@ public class AppraisalResultEntity {
     private BigDecimal buyOrderPrice;
     private Long sellOrdersCount;
     private Long buyOrdersCount;
-    private BigDecimal sellOrderAverage;
-    private BigDecimal buyOrderAverage;
+    private BigDecimal splitPrice;
+
 }
