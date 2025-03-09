@@ -11,4 +11,5 @@ public class AppraisalRequest {
     Double pricePercentage;
     String transactionType;
     String comment;
+    String system;
 }

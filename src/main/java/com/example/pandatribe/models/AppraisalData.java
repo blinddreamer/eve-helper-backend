@@ -39,4 +39,7 @@ public class AppraisalData {
 
     @Column(name="price_percentage")
     private Double pricePercentage;
+
+    @Column(name="system")
+    private String system;
 }

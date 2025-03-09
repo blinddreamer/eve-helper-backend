@@ -84,6 +84,7 @@ public class AppraisalServiceImpl implements AppraisalService {
         String shortenLink = compressUUID(uuid);
         appraisalDataRepository.saveAndFlush(AppraisalData.builder().id(uuid).appraisalResult(appraisalResult).creationDate(new Date())
                         .comment(appraisalRequest.getComment())
+                        .system(appraisalRequest.getSystem())
                         .market(appraisalRequest.getRegionId())
                         .pricePercentage(appraisalRequest.getPricePercentage())
                         .transactionType(appraisalRequest.getTransactionType())
