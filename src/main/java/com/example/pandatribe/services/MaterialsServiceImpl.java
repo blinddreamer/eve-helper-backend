@@ -29,7 +29,6 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 public class MaterialsServiceImpl implements MaterialService {
-    public static final Integer LOCATION_ID = 60003760;
     public static final String ORDER_TYPE = "all";
     private final EveTypesRepository eveTypesRepository;
     private final EveMaterialsRepository materialBlueprintRepository;

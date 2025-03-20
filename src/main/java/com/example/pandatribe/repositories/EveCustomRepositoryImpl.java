@@ -1,6 +1,7 @@
 package com.example.pandatribe.repositories;
 
 import com.example.pandatribe.models.industry.blueprints.BlueprintActivity;
+import com.example.pandatribe.models.industry.blueprints.PiDependency;
 import com.example.pandatribe.models.market.Category;
 import com.example.pandatribe.models.results.Blueprint;
 import com.example.pandatribe.models.results.SystemName;
@@ -116,6 +117,27 @@ public class EveCustomRepositoryImpl implements EveCustomRepository {
         return new ArrayList<>();
     }
 
+    public List<Integer> getRawMaterials(){
+        String nativeQuery = "SELECT DISTINCT typeID FROM planetschematicstypemap";
+        List<Tuple> result = entityManager.createNativeQuery(nativeQuery, Tuple.class).getResultList();
+        return result.isEmpty() ? new ArrayList<>() : result.stream().map(row -> (Integer) row.get("typeID")).toList();
+    }
+
+    public List<PiDependency> getPiDependency(Integer schematicID){
+        String nativeQuery = "SELECT DISTINCT quantity, typeID, isInput FROM planetschematicstypemap WHERE schematicID = :schematicID ";
+        List<Tuple> result = entityManager.createNativeQuery(nativeQuery, Tuple.class).setParameter("schematicID",schematicID).getResultList();
+        return result.isEmpty() ? new ArrayList<>() : result.stream().map(row -> PiDependency.builder()
+                .typeID((Integer) row.get("typeID"))
+                .isInput((Boolean) row.get("isInput"))
+                .quantity((Integer) row.get("quantity"))
+                .build()).toList();
+    }
+
+    public Integer getSchematicId(String typeName){
+        String nativeQuery = "SELECT schematicID FROM evesde.planetschematics WHERE schematicName = :typeName";
+        List<Tuple> result = entityManager.createNativeQuery(nativeQuery, Tuple.class).setParameter("typeName", typeName).getResultList();
+        return result.isEmpty() ? null : result.stream().findFirst().map(row -> (Integer) row.get("schematicID")).orElse(null);
+    }
 
     private String getBlueprintName(Integer id) {
         String nativeQuery = "SELECT typeName FROM invTypes WHERE typeID = :id";

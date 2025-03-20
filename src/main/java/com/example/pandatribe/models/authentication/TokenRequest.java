@@ -6,7 +6,6 @@ import lombok.Data;
 @Data
 @Builder
 public class TokenRequest {
-    String grant_type;
-    String client_id;
-    String client_secret;
+    private String grantType;
+    private String code;
 }
