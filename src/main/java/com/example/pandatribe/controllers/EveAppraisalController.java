@@ -1,7 +1,7 @@
 package com.example.pandatribe.controllers;
 
 import com.example.pandatribe.logging.JsonLogger;
-import com.example.pandatribe.models.AppraisalData;
+import com.example.pandatribe.models.dbmodels.appraisal.AppraisalData;
 import com.example.pandatribe.models.requests.AppraisalRequest;
 import com.example.pandatribe.services.contracts.AppraisalService;
 import lombok.AllArgsConstructor;

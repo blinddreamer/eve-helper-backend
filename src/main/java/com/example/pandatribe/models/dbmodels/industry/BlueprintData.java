@@ -1,4 +1,4 @@
-package com.example.pandatribe.models;
+package com.example.pandatribe.models.dbmodels.industry;
 
 import com.example.pandatribe.convertors.JsonToBlueprintData;
 import com.example.pandatribe.models.results.BlueprintResult;

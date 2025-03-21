@@ -1,6 +1,6 @@
 package com.example.pandatribe.services;
 
-import com.example.pandatribe.models.BlueprintData;
+import com.example.pandatribe.models.dbmodels.industry.BlueprintData;
 import com.example.pandatribe.models.industry.CostIndex;
 import com.example.pandatribe.models.industry.blueprints.BlueprintActivity;
 import com.example.pandatribe.models.industry.blueprints.EveType;

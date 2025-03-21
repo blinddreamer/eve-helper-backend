@@ -1,7 +1,7 @@
 package com.example.pandatribe.scheduledjobs;
 
-import com.example.pandatribe.models.AppraisalData;
-import com.example.pandatribe.models.BlueprintData;
+import com.example.pandatribe.models.dbmodels.appraisal.AppraisalData;
+import com.example.pandatribe.models.dbmodels.industry.BlueprintData;
 import com.example.pandatribe.repositories.interfaces.AppraisalDataRepository;
 import com.example.pandatribe.repositories.interfaces.BlueprintDataRepository;
 import lombok.AllArgsConstructor;

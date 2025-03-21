@@ -1,19 +1,17 @@
 package com.example.pandatribe.services.authentication;
 
 import com.example.pandatribe.feign.contracts.EveInteractor;
-import com.example.pandatribe.models.authentication.OAuthToken;
+import com.example.pandatribe.models.dbmodels.auth.OAuthToken;
 import com.example.pandatribe.models.authentication.RefreshTokenRequest;
 import com.example.pandatribe.models.authentication.TokenRequest;
 import com.example.pandatribe.models.authentication.TokenResponse;
 import com.example.pandatribe.models.characters.CharPortrait;
-import com.example.pandatribe.models.characters.CharacterData;
+import com.example.pandatribe.models.dbmodels.character.CharacterData;
 import com.example.pandatribe.models.characters.CharacterLoginInfo;
-import com.example.pandatribe.models.results.CharResult;
 import com.example.pandatribe.repositories.interfaces.CharacterDataRepository;
 import com.example.pandatribe.repositories.interfaces.TokenRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,26 +30,15 @@ public class OAuthTokenService {
     private final EveInteractor eveInteractor;
 
     @Transactional
-    public CharResult exchangeCodeForTokens(String code) {
+    public OAuthToken exchangeCodeForTokens(String code) {
         TokenRequest tokenRequest = TokenRequest.builder()
                 .grantType("authorization_code")
                 .code(code)
                 .build();
         TokenResponse tokenResponse = eveInteractor.requestAccessToken(tokenRequest);
-
-      //   Get character info
+        //   Get character info
         CharacterLoginInfo character = eveInteractor.getCharacterLoginInfo(tokenResponse.getAccessToken());
         CharPortrait charPortrait = eveInteractor.getCharPortrait(character.getCharacterId());
-        OAuthToken oAuthToken = OAuthToken.builder()
-                .accessToken(tokenResponse.getAccessToken())
-                .id(UUID.randomUUID().toString())
-                .refreshToken(tokenResponse.getRefreshToken())
-                .expiresAt(Instant.now().plus(Duration.ofSeconds(tokenResponse.getExpiresIn())))
-                .characterId(character.getCharacterId())
-                .build();
-        tokenRepository.save(oAuthToken);
-
-
         CharacterData csData = CharacterData.builder()
                 .charId(character.getCharacterId())
                 .charName(character.getName())
@@ -59,13 +46,24 @@ public class OAuthTokenService {
                 .build();
         characterDataRepository.save(csData);
 
+        OAuthToken oAuthToken = OAuthToken.builder()
+                .accessToken(tokenResponse.getAccessToken())
+                .id(UUID.randomUUID().toString())
+                .refreshToken(tokenResponse.getRefreshToken())
+                .expiresAt(Instant.now().plus(Duration.ofSeconds(tokenResponse.getExpiresIn())))
+                .characterId(character.getCharacterId())
+                .build();
+        return tokenRepository.save(oAuthToken);
+    }
 
-        return CharResult.builder().charId(csData.getCharId()).name(csData.getCharName()).avatar(csData.getAvatar()).build();
+    public OAuthToken checkTokenExist(String token) {
+        OAuthToken oAuthToken = tokenRepository.findById(token).orElse(null);
+        return oAuthToken;
     }
 
     @Transactional
-    public String getValidAccessToken(Integer characterId) {
-        OAuthToken token = tokenRepository.findOAuthTokenByCharacterId(characterId)
+    public String getValidAccessToken(String id) {
+        OAuthToken token = tokenRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Token not found"));
 
         if (Instant.now().isAfter(token.getExpiresAt())) {
@@ -85,11 +83,11 @@ public class OAuthTokenService {
         String newAccessToken = response.getAccessToken();
         String newRefreshToken = response.getRefreshToken();
         Integer expiresIn = response.getExpiresIn();
-       token = token.withAccessToken(newAccessToken);
-       token = token.withRefreshToken(newRefreshToken);
-       token = token.withExpiresAt(Instant.now().plus(Duration.ofSeconds(expiresIn)));
+        token = token.withAccessToken(newAccessToken);
+        token = token.withRefreshToken(newRefreshToken);
+        token = token.withExpiresAt(Instant.now().plus(Duration.ofSeconds(expiresIn)));
 
-       tokenRepository.save(token);
-       return newAccessToken;
+        tokenRepository.save(token);
+        return newAccessToken;
     }
 }

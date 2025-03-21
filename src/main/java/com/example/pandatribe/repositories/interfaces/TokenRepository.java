@@ -1,6 +1,6 @@
 package com.example.pandatribe.repositories.interfaces;
 
-import com.example.pandatribe.models.authentication.OAuthToken;
+import com.example.pandatribe.models.dbmodels.auth.OAuthToken;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

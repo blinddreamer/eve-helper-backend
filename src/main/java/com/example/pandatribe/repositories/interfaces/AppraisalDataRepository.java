@@ -1,6 +1,6 @@
 package com.example.pandatribe.repositories.interfaces;
 
-import com.example.pandatribe.models.AppraisalData;
+import com.example.pandatribe.models.dbmodels.appraisal.AppraisalData;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Date;

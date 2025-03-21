@@ -1,6 +1,6 @@
 package com.example.pandatribe.services;
 
-import com.example.pandatribe.models.AppraisalData;
+import com.example.pandatribe.models.dbmodels.appraisal.AppraisalData;
 import com.example.pandatribe.models.industry.blueprints.EveType;
 import com.example.pandatribe.models.market.ItemPrice;
 import com.example.pandatribe.models.requests.AppraisalRequest;

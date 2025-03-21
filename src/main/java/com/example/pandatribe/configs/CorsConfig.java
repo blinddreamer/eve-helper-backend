@@ -10,7 +10,8 @@ public class CorsConfig implements WebMvcConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**") // Adjust the mapping as per your API endpoints
                 .allowedOrigins("http://localhost:3000", "http://localhost:5173","https://eve-helper.com") // Allow requests from your frontend domain
-                .allowedMethods("GET", "POST", "PUT", "DELETE") // Allow specific HTTP methods
+                .allowedMethods("GET", "POST", "PUT", "DELETE")
+                .allowCredentials(true)// Allow specific HTTP methods
                 .allowedHeaders("*"); // Allow all headers
     }
 }

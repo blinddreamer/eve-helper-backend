@@ -1,4 +1,4 @@
-package com.example.pandatribe.models.characters;
+package com.example.pandatribe.models.dbmodels.character;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
