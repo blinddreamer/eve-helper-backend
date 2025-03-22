@@ -18,7 +18,7 @@ public class SecurityConfig {
                         .anyRequest().permitAll()
                 )
                 .csrf(csrf -> csrf
-                .ignoringRequestMatchers("/api/v1/*"))
+                .ignoringRequestMatchers("/api/v1/**"))
                 .oauth2Login(oauth2 -> oauth2
                         .defaultSuccessUrl("/api/v1/callback", true) // Redirect to your callback handler
                 )

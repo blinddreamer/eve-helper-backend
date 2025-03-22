@@ -2,14 +2,14 @@ package com.example.pandatribe.utils;
 
 import com.example.pandatribe.models.industry.BuildingBonus;
 import com.example.pandatribe.models.industry.RigBonus;
+import org.bitcoinj.core.Base58;
 import org.springframework.stereotype.Service;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import java.nio.ByteBuffer;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.UUID;
 
 @Service
 public class Helper {
@@ -51,9 +51,35 @@ public class Helper {
         index = building > 3 ? index + 2 : index;
         return rigBonuses.get(index);
     }
-    private String generateRandomCodeVerifier() {
-        byte[] randomBytes = new byte[32]; // 256 bits
-        ThreadLocalRandom.current().nextBytes(randomBytes);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
+
+    // Compresses an Integer into a Base58 string
+    public String compressInteger(Integer number) {
+        ByteBuffer byteBuffer = ByteBuffer.allocate(4); // Integer = 4 bytes
+        byteBuffer.putInt(number);
+        return Base58.encode(byteBuffer.array()); // Base58 encoding
+    }
+
+    // Decompresses a Base58 string back into an Integer
+    public Integer decompressInteger(String shortNumber) {
+        byte[] bytes = Base58.decode(shortNumber);
+        ByteBuffer byteBuffer = ByteBuffer.wrap(bytes);
+        return byteBuffer.getInt();
+    }
+
+    public String compressUUID(UUID uuid) {
+        ByteBuffer byteBuffer = ByteBuffer.wrap(new byte[16]);
+        byteBuffer.putLong(uuid.getMostSignificantBits());
+        byteBuffer.putLong(uuid.getLeastSignificantBits());
+
+        return Base58.encode(byteBuffer.array()); // Base58 is URL-safe
+    }
+
+    public UUID decompressUUID(String shortUuid) {
+        byte[] bytes = Base58.decode(shortUuid);
+        ByteBuffer byteBuffer = ByteBuffer.wrap(bytes);
+        long mostSigBits = byteBuffer.getLong();
+        long leastSigBits = byteBuffer.getLong();
+
+        return new UUID(mostSigBits, leastSigBits);
     }
 }

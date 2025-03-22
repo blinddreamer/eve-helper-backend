@@ -17,10 +17,10 @@ import java.time.Instant;
 @AllArgsConstructor
 
 public class OAuthToken {
-    @Id
-    @Column(name = "account_id")
-    private String id;
 
+    @Column(name = "account_id")
+    private String accountId;
+    @Id
     @Column(name = "character_id")
     private Integer characterId;
 
@@ -32,4 +32,7 @@ public class OAuthToken {
 
     @Column(name = "expires_at")
     private Instant expiresAt;
+
+    @Column(name = "isPrimary")
+    private Boolean isPrimary;
 }

@@ -2,20 +2,20 @@ package com.example.pandatribe.feign;
 
 import com.example.pandatribe.feign.contracts.EveApiList;
 import com.example.pandatribe.feign.contracts.EveInteractor;
+import com.example.pandatribe.models.authentication.RefreshTokenRequest;
 import com.example.pandatribe.models.authentication.TokenRequest;
+import com.example.pandatribe.models.authentication.TokenResponse;
 import com.example.pandatribe.models.characters.CharPortrait;
 import com.example.pandatribe.models.characters.CharacterLoginInfo;
 import com.example.pandatribe.models.industry.SystemCostIndexes;
 import com.example.pandatribe.models.market.ItemPrice;
 import com.example.pandatribe.models.market.MarketPriceData;
-import com.example.pandatribe.models.authentication.RefreshTokenRequest;
-import com.example.pandatribe.models.authentication.TokenResponse;
 import com.example.pandatribe.utils.Helper;
-import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -76,5 +76,11 @@ public class EveInteractorImpl implements EveInteractor {
     @Override
     public List<SystemCostIndexes> getSystemCostIndexes() {
         return feign.getRestClient(EveApiList.class, API_ADDRESS).getSystemCostIndexes();
+    }
+
+    @Override
+    public BigDecimal getWalletBalance(Integer characterId, String accessToken) {
+        return feign.getRestClientWithAuthentication(EveApiList.class, API_ADDRESS, accessToken, BEARER_PREFIX)
+                .getWalletBalance(characterId);
     }
 }

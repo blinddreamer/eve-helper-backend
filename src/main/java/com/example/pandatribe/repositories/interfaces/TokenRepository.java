@@ -4,9 +4,13 @@ import com.example.pandatribe.models.dbmodels.auth.OAuthToken;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface TokenRepository extends JpaRepository<OAuthToken, String> {
    Optional<OAuthToken> findOAuthTokenByCharacterId(Integer characterId);
+   Optional<OAuthToken> findOAuthTokenByAccountIdAndIsPrimary(String id, Boolean isPrimary);
+   List<OAuthToken> findAllByAccountId(String id);
+
 }

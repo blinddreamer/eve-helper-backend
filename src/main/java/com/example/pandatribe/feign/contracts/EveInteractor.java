@@ -9,6 +9,7 @@ import com.example.pandatribe.models.market.MarketPriceData;
 import com.example.pandatribe.models.authentication.RefreshTokenRequest;
 import com.example.pandatribe.models.authentication.TokenResponse;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 public interface EveInteractor {
@@ -25,4 +26,6 @@ public interface EveInteractor {
     List<MarketPriceData> getMarketPrices();
 
     List<SystemCostIndexes> getSystemCostIndexes();
+
+    BigDecimal getWalletBalance(Integer characterId, String accessToken);
 }

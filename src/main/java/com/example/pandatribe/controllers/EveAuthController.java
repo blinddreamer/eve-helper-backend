@@ -4,6 +4,7 @@ import com.example.pandatribe.models.dbmodels.auth.OAuthToken;
 import com.example.pandatribe.models.results.CharResult;
 import com.example.pandatribe.services.authentication.OAuthTokenService;
 import com.example.pandatribe.services.character.CharacterServiceImpl;
+import com.example.pandatribe.utils.Helper;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.AllArgsConstructor;
@@ -13,7 +14,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.Map;
+import java.util.UUID;
 
 @Slf4j
 @RestController
@@ -22,15 +25,16 @@ import java.util.Map;
 public class EveAuthController {
     private final OAuthTokenService tokenService;
     private final CharacterServiceImpl characterService;
+    private final Helper helper;
 
     @GetMapping("/callback")
     public void handleCallback(@RequestParam("code") String code, HttpServletResponse response) throws IOException {
         log.info("Received code {}", code);
         // Use the authorization code to get access and refresh tokens
         OAuthToken savedToken =  tokenService.exchangeCodeForTokens(code);
-        CharResult charResult = characterService.getCharacter(savedToken.getCharacterId());
 
-        Cookie sessionCookie = new Cookie("sessionUUID", savedToken.getId());
+        String cookieValue = helper.compressUUID(UUID.fromString(savedToken.getAccountId()));
+        Cookie sessionCookie = new Cookie("sessionUUID", cookieValue);
         sessionCookie.setHttpOnly(true);
         sessionCookie.setSecure(true);
         sessionCookie.setPath("/");
@@ -38,10 +42,7 @@ public class EveAuthController {
         response.addCookie(sessionCookie);
         response.setContentType("text/html");
         response.getWriter().write("<script>"
-                + "window.opener.postMessage({ character: { name: '"
-                + charResult.getName() + "', portrait: '"
-                + charResult.getAvatar() + "', id: '"
-                + charResult.getCharId() + "' } }, 'http://localhost:3000');"
+                + "window.opener.postMessage('http://localhost:3000');"
                 + "window.close();</script>");
     }
 
@@ -50,10 +51,7 @@ public class EveAuthController {
         if (sessionUUID == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("No active session");
         }
-
-        OAuthToken savedToken =  tokenService.exchangeCodeForTokens(sessionUUID);
-
-        CharResult character = characterService.getCharacter(savedToken.getCharacterId());
+        CharResult character = characterService.getCharacter(helper.decompressUUID(sessionUUID));
         if (character == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Session expired or invalid");
         }
@@ -68,7 +66,8 @@ public class EveAuthController {
         }
 
         // Check if session is valid (exists in DB)
-        OAuthToken token = tokenService.checkTokenExist(sessionUUID);
+        String id = helper.decompressUUID(sessionUUID).toString();
+        OAuthToken token = tokenService.checkTokenExist(id);
         if (token == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid session, please log in again");
         }
@@ -95,5 +94,19 @@ public class EveAuthController {
 
         response.addCookie(cookie);
         return ResponseEntity.ok(Map.of("message", "Logged out successfully"));
+    }
+
+    @GetMapping("/auth/wallet")
+    public ResponseEntity<?> getWalletBalance(@CookieValue(value = "sessionUUID", required = false) String sessionUUID) {
+        if (sessionUUID == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Session expired, please log in again");
+        }
+        String id = helper.decompressUUID(sessionUUID).toString();
+        OAuthToken token = tokenService.checkTokenExist(id);
+        if (token == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid session, please log in again");
+        }
+        BigDecimal walletBalance = characterService.getWalletBalances(id);
+        return ResponseEntity.ok(walletBalance);
     }
 }

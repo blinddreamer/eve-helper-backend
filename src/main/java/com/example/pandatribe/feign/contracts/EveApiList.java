@@ -8,6 +8,7 @@ import com.example.pandatribe.models.market.ItemPrice;
 import com.example.pandatribe.models.market.MarketPriceData;
 import feign.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -41,4 +42,7 @@ public interface EveApiList {
 
     @RequestLine("GET /latest/industry/systems")
     List<SystemCostIndexes> getSystemCostIndexes();
+
+    @RequestLine("GET /latest/characters/{characterId}/wallet")
+    BigDecimal getWalletBalance(@Param("characterId") Integer characterId);
 }

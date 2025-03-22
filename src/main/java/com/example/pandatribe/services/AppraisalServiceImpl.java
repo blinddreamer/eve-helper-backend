@@ -13,14 +13,12 @@ import com.example.pandatribe.services.contracts.AppraisalService;
 import com.example.pandatribe.services.contracts.MarketService;
 import com.example.pandatribe.utils.Helper;
 import lombok.AllArgsConstructor;
-import org.bitcoinj.core.Base58;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.nio.ByteBuffer;
 import java.util.*;
 
 @Service
@@ -81,7 +79,7 @@ public class AppraisalServiceImpl implements AppraisalService {
                 .totalVolume(appraisalEntities.stream().map(a -> a.getVolume()*a.getQuantity()).reduce(Double::sum).orElse(0.0))
                 .build();
         UUID uuid = UUID.randomUUID();
-        String shortenLink = compressUUID(uuid);
+        String shortenLink = helper.compressUUID(uuid);
         appraisalDataRepository.saveAndFlush(AppraisalData.builder().id(uuid).appraisalResult(appraisalResult).creationDate(new Date())
                         .comment(appraisalRequest.getComment())
                         .system(appraisalRequest.getSystem())
@@ -94,28 +92,11 @@ public class AppraisalServiceImpl implements AppraisalService {
     }
 
     public AppraisalData getAppraisalResult(String id) {
-        UUID uuid = decompressUUID(id);
+        UUID uuid = helper.decompressUUID(id);
         Optional<AppraisalData> appraisalData = appraisalDataRepository.findById(uuid);
         if(appraisalData.isPresent()){
             return appraisalData.get();
         }
         throw new IllegalArgumentException("Appraisal data not found");
-    }
-
-    private String compressUUID(UUID uuid) {
-        ByteBuffer byteBuffer = ByteBuffer.wrap(new byte[16]);
-        byteBuffer.putLong(uuid.getMostSignificantBits());
-        byteBuffer.putLong(uuid.getLeastSignificantBits());
-
-        return Base58.encode(byteBuffer.array()); // Base58 is URL-safe
-    }
-
-    private UUID decompressUUID(String shortUuid) {
-        byte[] bytes = Base58.decode(shortUuid);
-        ByteBuffer byteBuffer = ByteBuffer.wrap(bytes);
-        long mostSigBits = byteBuffer.getLong();
-        long leastSigBits = byteBuffer.getLong();
-
-        return new UUID(mostSigBits, leastSigBits);
     }
 }
