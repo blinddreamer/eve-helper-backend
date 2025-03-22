@@ -33,6 +33,6 @@ public class OAuthToken {
     @Column(name = "expires_at")
     private Instant expiresAt;
 
-    @Column(name = "isPrimary")
+    @Column(name = "is_primary")
     private Boolean isPrimary;
 }
