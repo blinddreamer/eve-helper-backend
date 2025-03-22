@@ -42,8 +42,8 @@ public class OAuthTokenService {
         CharacterLoginInfo character = eveInteractor.getCharacterLoginInfo(tokenResponse.getAccessToken());
         Boolean isPrimary = Boolean.TRUE;
         OAuthToken existing = tokenRepository.findOAuthTokenByCharacterId(character.getCharacterId()).orElse(null);
-        if (existing != null) {
-            isPrimary = Objects.isNull(findPrimaryCharacter(existing.getAccountId()));
+        if (existing != null && !existing.getCharacterId().equals(character.getCharacterId())) {
+            isPrimary = Boolean.FALSE;
         }
 
         OAuthToken oAuthToken = OAuthToken.builder()
