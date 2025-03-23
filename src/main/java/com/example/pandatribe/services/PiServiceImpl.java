@@ -22,6 +22,24 @@ public class PiServiceImpl {
     private final EveTypesRepository eveTypesRepository;
     private final MarketService marketService;
     private final Helper helper;
+    private final HashMap<Integer, String> planetNames = new HashMap<>(Map.ofEntries(
+            //Barren
+            Map.entry(1, "Barren"),
+            //Gas
+            Map.entry(2, "Gas"),
+            //Ice
+            Map.entry(3, "Ice"),
+            //Lava
+            Map.entry(4, "Lava"),
+            //Oceanic
+            Map.entry(5, "Oceanic"),
+            //Plasma
+            Map.entry(6, "Plasma"),
+            //Storm
+            Map.entry(7, "Storm"),
+            //Temperate
+            Map.entry(8,"Temperate")));
+
     private final HashMap<Integer, List<String>> planets = new HashMap<>(Map.ofEntries(
             //Barren
             Map.entry(1, Arrays.asList("Aqueous Liquids", "Base Metals", "Carbon Compounds", "Micro Organisms", "Noble Metals")),
@@ -42,47 +60,52 @@ public class PiServiceImpl {
 
     public List<PiMat> generatePi(){
         List<Integer> materials = eveCustomRepositoryImpl.getRawMaterials();
-       return materials.stream().map(id-> {
-            EveType eveType = eveTypesRepository.findEveTypeByTypeId(id).orElse(null);
-            if (eveType == null) {
-                return null;
-            }
-            Integer schematicID = eveCustomRepositoryImpl.getSchematicId(eveType.getTypeName());
-            List<ItemPrice> itemPriceList = marketService.getItemMarketPrice(eveType.getTypeId(), DEFAULT_REGION_ID, SELL_ORDER_TYPE
-            );
-            List<PiDependency> piDependencies;
-            Integer type = validateType(eveType.getGroupId());
-            if(type==0){
-               piDependencies = planets.entrySet().stream().filter(list-> list.getValue().contains(eveType.getTypeName())).map(list->
-                       PiDependency.builder().typeID(list.getKey()).build()
-                        ).toList();
-             } else{
-             piDependencies = eveCustomRepositoryImpl.getPiDependency(schematicID);
-                }
-            return PiMat.builder()
-                    .id(eveType.getTypeId())
-                    .quantity(type!=0 ? piDependencies.stream().filter(d-> !d.getIsInput()).findFirst()
-                            .map(PiDependency::getQuantity).orElse(null) : null)
-                    .price(marketService.getItemSellOrderPrice(DEFAULT_LOCATION_ID, itemPriceList))
-                    .name(eveType.getTypeName())
-                    .icon(helper.generateIconLink(eveType.getTypeId(), 32))
-                    .type(type)
-                    .dependencies(type != 0 ? piDependencies.stream().filter(PiDependency::getIsInput).toList() : piDependencies)
-                    .build();
-        })
+       List<PiMat> result = new ArrayList<>(materials.stream().map(id -> {
+                   EveType eveType = eveTypesRepository.findEveTypeByTypeId(id).orElse(null);
+                   if (eveType == null) {
+                       return null;
+                   }
+                   Integer schematicID = eveCustomRepositoryImpl.getSchematicId(eveType.getTypeName());
+                   List<ItemPrice> itemPriceList = marketService.getItemMarketPrice(eveType.getTypeId(), DEFAULT_REGION_ID, SELL_ORDER_TYPE
+                   );
+                   List<PiDependency> piDependencies;
+                   Integer type = validateType(eveType.getGroupId());
+                   if (type == 1) {
+                       piDependencies = planets.entrySet().stream().filter(list -> list.getValue().contains(eveType.getTypeName())).map(list ->
+                               PiDependency.builder().typeID(list.getKey()).build()
+                       ).toList();
+                   } else {
+                       piDependencies = eveCustomRepositoryImpl.getPiDependency(schematicID);
+                   }
+                   return PiMat.builder()
+                           .id(eveType.getTypeId())
+                           .quantity(type > 1 ? piDependencies.stream().filter(d -> !d.getIsInput()).findFirst()
+                                   .map(PiDependency::getQuantity).orElse(null) : null)
+                           .price(marketService.getItemSellOrderPrice(DEFAULT_LOCATION_ID, itemPriceList))
+                           .name(eveType.getTypeName())
+                           .icon(helper.generateIconLink(eveType.getTypeId(), 32))
+                           .type(type)
+                           .dependencies(type > 1 ? piDependencies.stream().filter(PiDependency::getIsInput).toList() : piDependencies)
+                           .build();
+               })
                .filter(Objects::nonNull)
                .sorted(Comparator.comparing(PiMat::getName))
                .sorted(Comparator.comparing(PiMat::getType))
-               .toList();
+               .toList());
+       result.addAll(planetNames.entrySet().stream().map(list->
+               PiMat.builder().id(list.getKey()).icon(String.format("/assets/%s.png", list.getValue().toLowerCase())).name(list.getValue()).type(validateType(0)).build()
+       ).toList());
+       return result;
     }
 
     private Integer validateType(Integer groupId){
         return switch (groupId) {
-            case 1034 -> 2;
-            case 1042 -> 1;
-            case 1040 -> 3;
-            case 1041 -> 4;
-            default -> 0;
+            case 1034 -> 3;
+            case 1042 -> 2;
+            case 1040 -> 4;
+            case 1041 -> 5;
+            case 0 -> 0;
+            default -> 1;
         };
     }
 }
