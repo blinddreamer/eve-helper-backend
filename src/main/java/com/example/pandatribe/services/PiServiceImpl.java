@@ -65,7 +65,7 @@ public class PiServiceImpl {
                    if (eveType == null) {
                        return null;
                    }
-                   Integer schematicID = eveCustomRepositoryImpl.getSchematicId(eveType.getTypeName());
+                   Integer schematicID = eveCustomRepositoryImpl.getSchematicId(eveType.getTypeId());
                    List<ItemPrice> itemPriceList = marketService.getItemMarketPrice(eveType.getTypeId(), DEFAULT_REGION_ID, SELL_ORDER_TYPE
                    );
                    List<PiDependency> piDependencies;

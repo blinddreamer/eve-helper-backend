@@ -133,9 +133,9 @@ public class EveCustomRepositoryImpl implements EveCustomRepository {
                 .build()).toList();
     }
 
-    public Integer getSchematicId(String typeName){
-        String nativeQuery = "SELECT schematicID FROM planetSchematics WHERE schematicName = :typeName";
-        List<Tuple> result = entityManager.createNativeQuery(nativeQuery, Tuple.class).setParameter("typeName", typeName).getResultList();
+    public Integer getSchematicId(Integer typeId){
+        String nativeQuery = "SELECT schematicID FROM planetSchematicsTypeMap WHERE typeID = :typeId and isInput = false";
+        List<Tuple> result = entityManager.createNativeQuery(nativeQuery, Tuple.class).setParameter("typeId", typeId).getResultList();
         return result.isEmpty() ? null : result.stream().findFirst().map(row -> (Integer) row.get("schematicID")).orElse(null);
     }
 
