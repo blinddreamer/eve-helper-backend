@@ -118,13 +118,13 @@ public class EveCustomRepositoryImpl implements EveCustomRepository {
     }
 
     public List<Integer> getRawMaterials(){
-        String nativeQuery = "SELECT DISTINCT typeID FROM planetschematicstypemap";
+        String nativeQuery = "SELECT DISTINCT typeID FROM planetSchematicsTypeMap";
         List<Tuple> result = entityManager.createNativeQuery(nativeQuery, Tuple.class).getResultList();
         return result.isEmpty() ? new ArrayList<>() : result.stream().map(row -> (Integer) row.get("typeID")).toList();
     }
 
     public List<PiDependency> getPiDependency(Integer schematicID){
-        String nativeQuery = "SELECT DISTINCT quantity, typeID, isInput FROM planetschematicstypemap WHERE schematicID = :schematicID ";
+        String nativeQuery = "SELECT DISTINCT quantity, typeID, isInput FROM planetSchematicsTypeMap WHERE schematicID = :schematicID ";
         List<Tuple> result = entityManager.createNativeQuery(nativeQuery, Tuple.class).setParameter("schematicID",schematicID).getResultList();
         return result.isEmpty() ? new ArrayList<>() : result.stream().map(row -> PiDependency.builder()
                 .typeID((Integer) row.get("typeID"))
@@ -134,7 +134,7 @@ public class EveCustomRepositoryImpl implements EveCustomRepository {
     }
 
     public Integer getSchematicId(String typeName){
-        String nativeQuery = "SELECT schematicID FROM evesde.planetschematics WHERE schematicName = :typeName";
+        String nativeQuery = "SELECT schematicID FROM planetSchematics WHERE schematicName = :typeName";
         List<Tuple> result = entityManager.createNativeQuery(nativeQuery, Tuple.class).setParameter("typeName", typeName).getResultList();
         return result.isEmpty() ? null : result.stream().findFirst().map(row -> (Integer) row.get("schematicID")).orElse(null);
     }
