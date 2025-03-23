@@ -3,6 +3,7 @@ package com.example.pandatribe.services;
 import com.example.pandatribe.feign.contracts.EveInteractor;
 import com.example.pandatribe.models.market.ItemPrice;
 import com.example.pandatribe.models.market.MarketPriceData;
+import com.example.pandatribe.repositories.interfaces.ItemPriceRepository;
 import com.example.pandatribe.services.contracts.MarketService;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
@@ -18,7 +19,7 @@ import java.util.Objects;
 @AllArgsConstructor
 public class MarketServiceImpl implements MarketService {
     private static final Logger LOGGER = LoggerFactory.getLogger(MarketServiceImpl.class);
-
+    private final ItemPriceRepository itemPriceRepository;
     private final EveInteractor eveInteractor;
     public static final String DATA_SOURCE = "tranquility";
 

@@ -1,4 +1,4 @@
-package com.example.pandatribe.models;
+package com.example.pandatribe.models.dbmodels.appraisal;
 
 import com.example.pandatribe.convertors.JsonToAppraisalResult;
 import com.example.pandatribe.models.results.AppraisalResult;

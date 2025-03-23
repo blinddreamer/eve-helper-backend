@@ -1,6 +1,6 @@
 package com.example.pandatribe.services.contracts;
 
-import com.example.pandatribe.models.BlueprintData;
+import com.example.pandatribe.models.dbmodels.industry.BlueprintData;
 import com.example.pandatribe.models.requests.BlueprintRequest;
 import com.example.pandatribe.models.results.*;
 import com.example.pandatribe.models.universe.Region;

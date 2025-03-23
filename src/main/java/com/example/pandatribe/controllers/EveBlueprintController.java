@@ -2,7 +2,7 @@ package com.example.pandatribe.controllers;
 
 
 import com.example.pandatribe.logging.JsonLogger;
-import com.example.pandatribe.models.BlueprintData;
+import com.example.pandatribe.models.dbmodels.industry.BlueprintData;
 import com.example.pandatribe.models.requests.BlueprintRequest;
 import com.example.pandatribe.models.results.GetBlueprintsResult;
 import com.example.pandatribe.models.results.SystemName;

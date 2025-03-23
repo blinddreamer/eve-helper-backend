@@ -2,42 +2,38 @@ package com.example.pandatribe.utils;
 
 import com.example.pandatribe.models.industry.BuildingBonus;
 import com.example.pandatribe.models.industry.RigBonus;
+import org.bitcoinj.core.Base58;
 import org.springframework.stereotype.Service;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import java.nio.ByteBuffer;
 import java.util.Base64;
 import java.util.HashMap;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class Helper {
 
-    private final HashMap<Integer, BuildingBonus> buildingBonuses = new HashMap<>() {{
-        put(0, BuildingBonus.builder().costReduction(0).materialReduction(0).build());
-        put(1, BuildingBonus.builder().costReduction(4).materialReduction(1).build());
-        put(2, BuildingBonus.builder().costReduction(3).materialReduction(1).build());
-        put(3, BuildingBonus.builder().costReduction(5).materialReduction(1).build());
-        put(4, BuildingBonus.builder().costReduction(0).materialReduction(0).build());
-        put(5, BuildingBonus.builder().costReduction(0).materialReduction(0).build());
-    }};
+    private final Map<Integer, BuildingBonus> buildingBonuses = new HashMap<>(Map.ofEntries(
+            Map.entry(0, BuildingBonus.builder().costReduction(0).materialReduction(0).build()),
+            Map.entry(1, BuildingBonus.builder().costReduction(4).materialReduction(1).build()),
+            Map.entry(2, BuildingBonus.builder().costReduction(3).materialReduction(1).build()),
+            Map.entry(3, BuildingBonus.builder().costReduction(5).materialReduction(1).build()),
+            Map.entry(4, BuildingBonus.builder().costReduction(0).materialReduction(0).build()),
+            Map.entry(5, BuildingBonus.builder().costReduction(0).materialReduction(0).build())
+    ));
 
-    private final HashMap<Integer, RigBonus> rigBonuses = new HashMap<>() {{
-        put(0, RigBonus.builder().materialReduction(0.0).highSecMultiplier(1.0).lowSecMultiplier(1.9).nullSecMultiplier(2.1).build());
-        put(1, RigBonus.builder().materialReduction(2.0).highSecMultiplier(1.0).lowSecMultiplier(1.9).nullSecMultiplier(2.1).build());
-        put(2, RigBonus.builder().materialReduction(2.4).highSecMultiplier(1.0).lowSecMultiplier(1.9).nullSecMultiplier(2.1).build());
-        put(3, RigBonus.builder().materialReduction(2.0).highSecMultiplier(0.0).lowSecMultiplier(1.0).nullSecMultiplier(1.1).build());
-        put(4, RigBonus.builder().materialReduction(2.4).highSecMultiplier(0.0).lowSecMultiplier(1.0).nullSecMultiplier(1.1).build());
+    private final Map<Integer, RigBonus> rigBonuses = new HashMap<>(Map.ofEntries(
+            Map.entry(0, RigBonus.builder().materialReduction(0.0).highSecMultiplier(1.0).lowSecMultiplier(1.9).nullSecMultiplier(2.1).build()),
+            Map.entry(1, RigBonus.builder().materialReduction(2.0).highSecMultiplier(1.0).lowSecMultiplier(1.9).nullSecMultiplier(2.1).build()),
+            Map.entry(2, RigBonus.builder().materialReduction(2.4).highSecMultiplier(1.0).lowSecMultiplier(1.9).nullSecMultiplier(2.1).build()),
+            Map.entry(3, RigBonus.builder().materialReduction(2.0).highSecMultiplier(0.0).lowSecMultiplier(1.0).nullSecMultiplier(1.1).build()),
+            Map.entry(4, RigBonus.builder().materialReduction(2.4).highSecMultiplier(0.0).lowSecMultiplier(1.0).nullSecMultiplier(1.1).build())
+    ));
 
-    }};
-
-    public String getCodes() {
-        String codeVerifier = generateRandomCodeVerifier();
-
-        // Generate the code_challenge using SHA-256
-        String codeChallenge = generateCodeChallenge(codeVerifier);
-        return codeChallenge;
-
+    public String generateBasicAuthToken(String clientId, String clientSecret) {
+        String authValue = clientId + ":" + clientSecret;
+        return Base64.getEncoder().encodeToString(authValue.getBytes());
     }
 
     public String generateIconLink(Integer typeId, Integer size){
@@ -55,21 +51,35 @@ public class Helper {
         index = building > 3 ? index + 2 : index;
         return rigBonuses.get(index);
     }
-    private String generateRandomCodeVerifier() {
-        byte[] randomBytes = new byte[32]; // 256 bits
-        ThreadLocalRandom.current().nextBytes(randomBytes);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
+
+    // Compresses an Integer into a Base58 string
+    public String compressInteger(Integer number) {
+        ByteBuffer byteBuffer = ByteBuffer.allocate(4); // Integer = 4 bytes
+        byteBuffer.putInt(number);
+        return Base58.encode(byteBuffer.array()); // Base58 encoding
     }
 
-    private String generateCodeChallenge(String codeVerifier) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(codeVerifier.getBytes());
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
-        } catch (NoSuchAlgorithmException e) {
-            // Handle the exception appropriately
-            e.printStackTrace();
-            return null;
-        }
+    // Decompresses a Base58 string back into an Integer
+    public Integer decompressInteger(String shortNumber) {
+        byte[] bytes = Base58.decode(shortNumber);
+        ByteBuffer byteBuffer = ByteBuffer.wrap(bytes);
+        return byteBuffer.getInt();
+    }
+
+    public String compressUUID(UUID uuid) {
+        ByteBuffer byteBuffer = ByteBuffer.wrap(new byte[16]);
+        byteBuffer.putLong(uuid.getMostSignificantBits());
+        byteBuffer.putLong(uuid.getLeastSignificantBits());
+
+        return Base58.encode(byteBuffer.array()); // Base58 is URL-safe
+    }
+
+    public UUID decompressUUID(String shortUuid) {
+        byte[] bytes = Base58.decode(shortUuid);
+        ByteBuffer byteBuffer = ByteBuffer.wrap(bytes);
+        long mostSigBits = byteBuffer.getLong();
+        long leastSigBits = byteBuffer.getLong();
+
+        return new UUID(mostSigBits, leastSigBits);
     }
 }
