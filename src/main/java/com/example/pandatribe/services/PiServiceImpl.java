@@ -42,21 +42,21 @@ public class PiServiceImpl {
 
     private final HashMap<Integer, List<String>> planets = new HashMap<>(Map.ofEntries(
             //Barren
-            Map.entry(1, Arrays.asList("Aqueous Liquids", "Base Metals", "Carbon Compounds", "Micro Organisms", "Noble Metals")),
+            Map.entry(1, Arrays.asList("Aqueous Liquids", "Base Metals", "Carbon Compounds", "Microorganisms", "Noble Metals")),
             //Gas
             Map.entry(2, Arrays.asList("Aqueous Liquids", "Base Metals", "Ionic Solutions", "Noble Gas", "Reactive Gas")),
             //Ice
-            Map.entry(3, Arrays.asList("Aqueous Liquids", "Micro Organisms", "Planktic Colonies", "Complex Organisms", "Carbon Compounds")),
+            Map.entry(3, Arrays.asList("Aqueous Liquids", "Heavy Metals", "Microorganisms", "Noble Gas", "Planktic Colonies")),
             //Lava
-            Map.entry(4, Arrays.asList("Base Metals", "Felsic Magma", "Noble Metals", "Non-CS Crystals", "Suspended Plasma")),
+            Map.entry(4, Arrays.asList("Base Metals", "Felsic Magma", "Heavy Metals", "Non-CS Crystals", "Suspended Plasma")),
             //Oceanic
-            Map.entry(5, Arrays.asList("Aqueous Liquids", "Carbon Compounds", "Complex Organisms", "Micro Organisms", "Planktic Colonies")),
+            Map.entry(5, Arrays.asList("Aqueous Liquids", "Carbon Compounds", "Complex Organisms", "Microorganisms", "Planktic Colonies")),
             //Plasma
-            Map.entry(6, Arrays.asList("Base Metals", "Noble Metals", "Non-CS Crystals", "Suspended Plasma", "Felsic Magma")),
+            Map.entry(6, Arrays.asList("Base Metals", "Heavy Metals", "Noble Metals", "Non-CS Crystals", "Suspended Plasma")),
             //Storm
-            Map.entry(7, Arrays.asList("Aqueous Liquids", "Ionic Solutions", "Noble Gas", "Reactive Gas", "Suspended Plasma")),
+            Map.entry(7, Arrays.asList("Aqueous Liquids", "Base Metals", "Ionic Solutions", "Noble Gas", "Suspended Plasma")),
             //Temperate
-            Map.entry(8, Arrays.asList("Aqueous Liquids", "Autotrophs", "Carbon Compounds", "Complex Organisms", "Micro Organisms"))));
+            Map.entry(8, Arrays.asList("Aqueous Liquids", "Autotrophs", "Carbon Compounds", "Complex Organisms", "Microorganisms"))));
 
     public List<PiMat> generatePi(){
         List<Integer> materials = eveCustomRepositoryImpl.getRawMaterials();
