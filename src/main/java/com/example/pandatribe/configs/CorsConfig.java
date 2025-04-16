@@ -8,10 +8,11 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class CorsConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/**") // Adjust the mapping as per your API endpoints
-                .allowedOrigins("http://localhost:3000", "http://localhost:5173","https://eve-helper.com") // Allow requests from your frontend domain
+        registry.addMapping("/**")
+                .allowedOrigins("http://localhost:3000") // REMOVE "*" or multiple origins if using credentials
                 .allowedMethods("GET", "POST", "PUT", "DELETE")
-                .allowCredentials(true)// Allow specific HTTP methods
-                .allowedHeaders("*"); // Allow all headers
+                .allowedHeaders("Authorization", "Content-Type") // Set required headers
+                .exposedHeaders("Set-Cookie") // Expose cookies to frontend
+                .allowCredentials(true);
     }
 }

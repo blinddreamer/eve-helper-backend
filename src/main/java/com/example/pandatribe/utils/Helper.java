@@ -6,6 +6,7 @@ import org.bitcoinj.core.Base58;
 import org.springframework.stereotype.Service;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
@@ -81,5 +82,13 @@ public class Helper {
         long leastSigBits = byteBuffer.getLong();
 
         return new UUID(mostSigBits, leastSigBits);
+    }
+
+    public String encrypt(String data) {
+        return Base64.getEncoder().encodeToString(data.getBytes(StandardCharsets.UTF_8));
+    }
+
+    public String decrypt(String encryptedData) {
+        return new String(Base64.getDecoder().decode(encryptedData), StandardCharsets.UTF_8);
     }
 }
