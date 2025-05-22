@@ -99,10 +99,16 @@ public class EveSdeUpdater {
                     continue;
                 }
 
-                if (localLastModified == null || remoteLastModified.isAfter(localLastModified)) {
+                if(localLastModified == null || remoteLastModified.equals(localLastModified)){
+                    log.info("No newer versions are available");
+                    break;
+                }
+
+                if (remoteLastModified.isAfter(localLastModified)) {
                     log.info("Update available for {} (remote: {}, local: {})",
                             filename, remoteLastModified, localLastModified);
                     updatesAvailable = true;
+                    break;
                 }
             } catch (IOException e) {
                 log.error("Error checking update status for {}", filename, e);
