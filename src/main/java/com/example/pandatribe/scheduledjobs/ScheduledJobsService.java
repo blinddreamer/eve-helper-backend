@@ -4,6 +4,7 @@ import com.example.pandatribe.models.dbmodels.appraisal.AppraisalData;
 import com.example.pandatribe.models.dbmodels.industry.BlueprintData;
 import com.example.pandatribe.repositories.interfaces.AppraisalDataRepository;
 import com.example.pandatribe.repositories.interfaces.BlueprintDataRepository;
+import com.example.pandatribe.services.EveSdeUpdater;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -20,9 +21,12 @@ import java.util.List;
 public class ScheduledJobsService {
     public static final int OLDER_THAN_DAYS = 7;
     public static final String RUN_EVERY_SUNDAY_AT_4_AM ="0 0 4 * * SUN";
+    public static final String RUN_EVERY_5_MINUTES = "0 */5 * * * *";
+    public static final String RUN_DAILY_AT_2_30_AM = "0 30 2 * * *";
 
     private final AppraisalDataRepository appraisalDataRepository;
     private final BlueprintDataRepository blueprintDataRepository;
+    private final EveSdeUpdater eveSdeUpdater;
 
     @Scheduled(cron = RUN_EVERY_SUNDAY_AT_4_AM, zone = "UTC")
     public void runWeeklyTask(){
@@ -46,5 +50,11 @@ public class ScheduledJobsService {
         List<AppraisalData> appraisalsToRemove = appraisalDataRepository.findAppraisalDataByCreationDateBefore(olderThanSevenDays);
         appraisalDataRepository.deleteAll(appraisalsToRemove);
         log.info("Removed " + appraisalsToRemove.size() + " appraisal data");
+    }
+
+    @Scheduled(cron = RUN_DAILY_AT_2_30_AM, zone = "UTC") // Default: every Sunday at 3 AM
+    public void scheduledSdeUpdate() {
+        log.info("Starting scheduled EVE SDE update check...");
+        eveSdeUpdater.runUpdate();
     }
 }
