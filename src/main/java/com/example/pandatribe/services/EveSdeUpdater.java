@@ -8,7 +8,6 @@ import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -239,7 +238,7 @@ public class EveSdeUpdater {
         return outputFile;
     }
 
-    @Transactional
+
     protected void executeSqlWithEntityManager(Path sqlFile) throws IOException {
         log.info("Executing SQL file: {}", sqlFile.getFileName());
 

@@ -5,6 +5,7 @@ import com.example.pandatribe.models.dbmodels.industry.BlueprintData;
 import com.example.pandatribe.repositories.interfaces.AppraisalDataRepository;
 import com.example.pandatribe.repositories.interfaces.BlueprintDataRepository;
 import com.example.pandatribe.services.EveSdeUpdater;
+import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -52,7 +53,8 @@ public class ScheduledJobsService {
         log.info("Removed " + appraisalsToRemove.size() + " appraisal data");
     }
 
-    @Scheduled(cron = RUN_DAILY_AT_2_30_AM, zone = "UTC") // Default: every Sunday at 3 AM
+    @Scheduled(cron = RUN_DAILY_AT_2_30_AM, zone = "UTC")
+    @Transactional// Default: every Sunday at 3 AM
     public void scheduledSdeUpdate() {
         log.info("Starting scheduled EVE SDE update check...");
         eveSdeUpdater.runUpdate();
