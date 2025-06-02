@@ -53,7 +53,9 @@ public class EveSdeUpdater {
             "invVolumes.sql.bz2",
             "mapRegions.sql.bz2",
             "mapSolarSystems.sql.bz2",
-            "staStations.sql.bz2"
+            "staStations.sql.bz2",
+            "planetSchematics.sql.bz2",
+            "planetSchematicsTypeMap.sql.bz2"
     );
 
     @PostConstruct
