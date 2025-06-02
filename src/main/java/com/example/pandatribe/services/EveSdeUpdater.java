@@ -8,6 +8,7 @@ import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -262,12 +263,14 @@ public class EveSdeUpdater {
                     sql = sql.substring(0, sql.length() - 1); // Remove trailing semicolon
 
                     try {
+                        // Explicitly join transaction
+                        entityManager.joinTransaction();
                         int updateCount = entityManager.createNativeQuery(sql).executeUpdate();
                         statementCount++;
 
                         if (statementCount % 100 == 0) {
                             entityManager.flush();
-                            entityManager.clear();
+                            // Don't clear() as it can detach transactional entities
                             log.debug("Processed {} statements (last update count: {})",
                                     statementCount, updateCount);
                         }
@@ -277,6 +280,8 @@ public class EveSdeUpdater {
                                 sql.length(),
                                 sql.substring(0, Math.min(200, sql.length())),
                                 e);
+                        // Explicitly mark for rollback
+                        TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
                         throw e;
                     }
                     statementBuilder = new StringBuilder();
@@ -284,8 +289,6 @@ public class EveSdeUpdater {
             }
 
             entityManager.flush();
-            entityManager.clear();
-
             long duration = System.currentTimeMillis() - startTime;
             log.info("Executed {} statements from {} in {} ms",
                     statementCount, sqlFile.getFileName(), duration);

@@ -53,10 +53,10 @@ public class ScheduledJobsService {
         log.info("Removed " + appraisalsToRemove.size() + " appraisal data");
     }
 
-//    @Scheduled(cron = RUN_DAILY_AT_2_30_AM, zone = "UTC")
-//    @Transactional// Default: every Sunday at 3 AM
-//    public void scheduledSdeUpdate() {
-//        log.info("Starting scheduled EVE SDE update check...");
-//        eveSdeUpdater.runUpdate();
-//    }
+    @Scheduled(cron = RUN_DAILY_AT_2_30_AM, zone = "UTC")
+    @Transactional// Default: every Sunday at 3 AM
+    public void scheduledSdeUpdate() {
+        log.info("Starting scheduled EVE SDE update check...");
+        eveSdeUpdater.runUpdate();
+    }
 }
