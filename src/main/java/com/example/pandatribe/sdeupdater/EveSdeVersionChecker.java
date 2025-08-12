@@ -1,11 +1,11 @@
-package com.example.pandatribe.services;
+package com.example.pandatribe.sdeupdater;
 
+import com.example.pandatribe.feign.contracts.EveInteractor;
 import jakarta.annotation.PostConstruct;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;

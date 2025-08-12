@@ -1,6 +1,8 @@
-package com.example.pandatribe.services;
+package com.example.pandatribe.sdeupdater;
 
+import com.example.pandatribe.feign.contracts.EveInteractor;
 import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
 import org.flywaydb.core.Flyway;
@@ -8,7 +10,6 @@ import org.flywaydb.core.api.configuration.ClassicConfiguration;
 import org.flywaydb.core.api.output.MigrateResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
@@ -18,14 +19,13 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.*;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class EveSdeUpdater {
 
     // Configuration properties with defaults
@@ -40,6 +40,8 @@ public class EveSdeUpdater {
 
     @Value("${eve.sde.flyway.table:sde_schema_history}")
     private String flywayTable;
+
+    private final EveInteractor eveInteractor;
 
     private static final List<String> SQL_FILES_TO_DOWNLOAD = Arrays.asList(
             "industryActivityMaterials.sql.bz2",
@@ -230,15 +232,13 @@ public class EveSdeUpdater {
         configuration.setTable(flywayTable);
         configuration.setIgnoreMigrationPatterns("*:WSREP_ON");
 
-        // Match your working naming pattern
         configuration.setRepeatableSqlMigrationPrefix("R__import");
         configuration.setSqlMigrationSeparator("_");
 
         configuration.setBaselineOnMigrate(true);
-        configuration.setValidateOnMigrate(false); // Disable if having validation issues
+        configuration.setValidateOnMigrate(false);
         configuration.setCleanDisabled(true);
 
-        // Disable naming validation for your pattern
         configuration.setValidateMigrationNaming(false);
 
         Flyway flyway = new Flyway(configuration);
@@ -246,9 +246,15 @@ public class EveSdeUpdater {
         if (migrationsApplied.success) {
             log.info("Flyway applied {} SDE migrations", migrationsApplied.migrationsExecuted);
             cleanMigrationFiles();
+            eveInteractor.sendNotification("eve", "SDE Update Success" ,
+                    String.format("Applied %d migrations in %s", migrationsApplied.migrationsExecuted,
+                            migrationsApplied.database),
+                    "default");
         }
         else {
             log.error("Flyway migration failed");
+            eveInteractor.sendNotification("eve", "SDE Update Failed" , String.format("Failed in %s: %s",
+                    migrationsApplied.database, migrationsApplied.getException()), "high");
         }
     }
 

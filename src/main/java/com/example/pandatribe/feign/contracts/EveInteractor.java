@@ -28,4 +28,6 @@ public interface EveInteractor {
     List<SystemCostIndexes> getSystemCostIndexes();
 
     BigDecimal getWalletBalance(Integer characterId, String accessToken);
+
+    void sendNotification(String topic, String title, String message, String priority);
 }

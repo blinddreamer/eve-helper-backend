@@ -2,6 +2,7 @@ package com.example.pandatribe.feign;
 
 import com.example.pandatribe.feign.contracts.EveApiList;
 import com.example.pandatribe.feign.contracts.EveInteractor;
+import com.example.pandatribe.feign.contracts.ExternalApi;
 import com.example.pandatribe.models.authentication.RefreshTokenRequest;
 import com.example.pandatribe.models.authentication.TokenRequest;
 import com.example.pandatribe.models.authentication.TokenResponse;
@@ -33,6 +34,10 @@ public class EveInteractorImpl implements EveInteractor {
     private final FeignConfig feign;
     private final Helper helper;
     public static final String API_ADDRESS = "https://esi.evetech.net";
+    @Value("${NTFY_SELECTED_ADDRESS}")
+    private String ntfyAddress;
+    @Value("${NTFY_SELECTED_TOKEN}")
+    private String ntfyApiToken;
     public static final String AUTH_ADDRESS = "https://login.eveonline.com";
 
 
@@ -82,5 +87,14 @@ public class EveInteractorImpl implements EveInteractor {
     public BigDecimal getWalletBalance(Integer characterId, String accessToken) {
         return feign.getRestClientWithAuthentication(EveApiList.class, API_ADDRESS, accessToken, BEARER_PREFIX)
                 .getWalletBalance(characterId);
+    }
+
+    @Override
+    public void sendNotification(String topic, String title, String message, String priority) {
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Title", title);
+        headers.put("Priority", priority);
+        feign.getRestClientWithAuthentication(ExternalApi.class, ntfyAddress, ntfyApiToken, BEARER_PREFIX)
+                .sendNotification(topic, headers, message);
     }
 }
