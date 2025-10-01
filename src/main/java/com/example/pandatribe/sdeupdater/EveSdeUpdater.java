@@ -173,14 +173,14 @@ public class EveSdeUpdater {
                 Path decompressedFile = Paths.get(tempDir, filename.replace(".bz2", ""));
 
                 log.info("Decompressing {} to {}", filename, decompressedFile.getFileName());
-                try (InputStream fin = Files.newInputStream(compressedFile);
-                     BZip2CompressorInputStream bzIn = new BZip2CompressorInputStream(fin);
-                     OutputStream fout = Files.newOutputStream(decompressedFile)) {
+                try (InputStream fileIn = Files.newInputStream(compressedFile);
+                     BZip2CompressorInputStream bzIn = new BZip2CompressorInputStream(fileIn);
+                     OutputStream fileOut = Files.newOutputStream(decompressedFile)) {
 
                     byte[] buffer = new byte[8192];
                     int n;
                     while ((n = bzIn.read(buffer)) != -1) {
-                        fout.write(buffer, 0, n);
+                        fileOut.write(buffer, 0, n);
                     }
                 }
                 // Delete the compressed file after decompression

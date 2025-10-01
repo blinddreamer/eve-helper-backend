@@ -37,8 +37,8 @@ public class ScheduledJobsService {
 
     private void scheduledRemoveBlueprintData(){
         LocalDate currentDate = LocalDate.now();
-        LocalDate tempDate = currentDate.minusDays(OLDER_THAN_DAYS);
-        Date olderThanSevenDays = Date.from(tempDate.atStartOfDay().atZone(ZoneId.systemDefault()).toInstant());
+        LocalDate olderThanSevenDays = currentDate.minusDays(OLDER_THAN_DAYS);
+//        Date olderThanSevenDays = Date.from(tempDate.atStartOfDay().atZone(ZoneId.systemDefault()).toInstant());
         List<BlueprintData> blueprintsToRemove = blueprintDataRepository.findByCreationDateBefore(olderThanSevenDays);
         blueprintDataRepository.deleteAll(blueprintsToRemove);
         log.info("Removed " + blueprintsToRemove.size() + " blueprint data");

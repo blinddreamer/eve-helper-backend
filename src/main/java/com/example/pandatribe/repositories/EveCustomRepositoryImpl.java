@@ -139,6 +139,12 @@ public class EveCustomRepositoryImpl implements EveCustomRepository {
         return result.isEmpty() ? null : result.stream().findFirst().map(row -> (Integer) row.get("schematicID")).orElse(null);
     }
 
+    public Integer getCycleTime(Integer schematicId){
+        String nativeQuery = "SELECT cycleTime from planetSchematics WHERE schematicID = :schematicId";
+        List<Tuple> result = entityManager.createNativeQuery(nativeQuery, Tuple.class).setParameter("schematicId", schematicId).getResultList();
+        return result.isEmpty() ? null : result.stream().findFirst().map(row -> (Integer) row.get("cycleTime")).orElse(null);
+    }
+
     private String getBlueprintName(Integer id) {
         String nativeQuery = "SELECT typeName FROM invTypes WHERE typeID = :id";
         List<Object> result = entityManager.createNativeQuery(nativeQuery).setParameter("id", id).getResultList();

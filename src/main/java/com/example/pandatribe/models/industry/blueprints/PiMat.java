@@ -16,5 +16,6 @@ public class PiMat {
     private BigDecimal price;
     private List<PiDependency> dependencies;
     private Integer quantity;
+    private Integer cycleTime;
 
 }

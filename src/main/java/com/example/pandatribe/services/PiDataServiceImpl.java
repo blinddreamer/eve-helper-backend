@@ -7,6 +7,7 @@ import com.example.pandatribe.models.market.ItemPrice;
 import com.example.pandatribe.repositories.EveCustomRepositoryImpl;
 import com.example.pandatribe.repositories.interfaces.EveTypesRepository;
 import com.example.pandatribe.services.contracts.MarketService;
+import com.example.pandatribe.services.contracts.PiDataService;
 import com.example.pandatribe.utils.Helper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -17,7 +18,7 @@ import static com.example.pandatribe.utils.Constant.*;
 
 @Service
 @RequiredArgsConstructor
-public class PiServiceImpl {
+public class PiDataServiceImpl implements PiDataService {
     private final EveCustomRepositoryImpl eveCustomRepositoryImpl;
     private final EveTypesRepository eveTypesRepository;
     private final MarketService marketService;
@@ -40,7 +41,7 @@ public class PiServiceImpl {
             //Temperate
             Map.entry(8,"Temperate")));
 
-    private final HashMap<Integer, List<String>> planets = new HashMap<>(Map.ofEntries(
+    private final HashMap<Integer, List<String>> planetsMaterials = new HashMap<>(Map.ofEntries(
             //Barren
             Map.entry(1, Arrays.asList("Aqueous Liquids", "Base Metals", "Carbon Compounds", "Microorganisms", "Noble Metals")),
             //Gas
@@ -58,6 +59,7 @@ public class PiServiceImpl {
             //Temperate
             Map.entry(8, Arrays.asList("Aqueous Liquids", "Autotrophs", "Carbon Compounds", "Complex Organisms", "Microorganisms"))));
 
+    @Override
     public List<PiMat> generatePi(){
         List<Integer> materials = eveCustomRepositoryImpl.getRawMaterials();
        List<PiMat> result = new ArrayList<>(materials.stream().map(id -> {
@@ -71,12 +73,13 @@ public class PiServiceImpl {
                    List<PiDependency> piDependencies;
                    Integer type = validateType(eveType.getGroupId());
                    if (type == 1) {
-                       piDependencies = planets.entrySet().stream().filter(list -> list.getValue().contains(eveType.getTypeName())).map(list ->
+                       piDependencies = planetsMaterials.entrySet().stream().filter(list -> list.getValue().contains(eveType.getTypeName())).map(list ->
                                PiDependency.builder().typeID(list.getKey()).build()
                        ).toList();
                    } else {
                        piDependencies = eveCustomRepositoryImpl.getPiDependency(schematicID);
                    }
+                   Integer cycleTime = eveCustomRepositoryImpl.getCycleTime(schematicID);
                    return PiMat.builder()
                            .id(eveType.getTypeId())
                            .quantity(type > 1 ? piDependencies.stream().filter(d -> !d.getIsInput()).findFirst()
@@ -85,6 +88,7 @@ public class PiServiceImpl {
                            .name(eveType.getTypeName())
                            .icon(helper.generateIconLink(eveType.getTypeId(), 32))
                            .type(type)
+                           .cycleTime(cycleTime)
                            .dependencies(type > 1 ? piDependencies.stream().filter(PiDependency::getIsInput).toList() : piDependencies)
                            .build();
                })

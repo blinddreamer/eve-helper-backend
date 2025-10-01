@@ -1,8 +1,7 @@
 package com.example.pandatribe.controllers;
 
-import com.example.pandatribe.models.industry.blueprints.EveType;
 import com.example.pandatribe.models.industry.blueprints.PiMat;
-import com.example.pandatribe.services.PiServiceImpl;
+import com.example.pandatribe.services.contracts.PiDataService;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,11 +15,11 @@ import java.util.List;
 @RequestMapping("/api/v1/")
 public class EvePiController {
 
-    private final PiServiceImpl piServiceImpl;
+    private final PiDataService piDataService;
 
     @GetMapping("pi")
     public ResponseEntity<?> generatePi(){
-     List<PiMat> result = piServiceImpl.generatePi();
+     List<PiMat> result = piDataService.generatePi();
      return ResponseEntity.ok(result);
     }
 }
