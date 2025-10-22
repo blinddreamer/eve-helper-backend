@@ -4,11 +4,11 @@ import com.example.pandatribe.models.industry.blueprints.EveType;
 import com.example.pandatribe.models.industry.blueprints.PiDependency;
 import com.example.pandatribe.models.industry.blueprints.PiMat;
 import com.example.pandatribe.models.market.ItemPrice;
-import com.example.pandatribe.repositories.EveCustomRepositoryImpl;
+import com.example.pandatribe.repositories.PlanetaryInteractionRepository;
 import com.example.pandatribe.repositories.interfaces.EveTypesRepository;
 import com.example.pandatribe.services.contracts.MarketService;
 import com.example.pandatribe.services.contracts.PiDataService;
-import com.example.pandatribe.utils.Helper;
+import com.example.pandatribe.utils.EveImageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -19,10 +19,10 @@ import static com.example.pandatribe.utils.Constant.*;
 @Service
 @RequiredArgsConstructor
 public class PiDataServiceImpl implements PiDataService {
-    private final EveCustomRepositoryImpl eveCustomRepositoryImpl;
+    private final PlanetaryInteractionRepository planetaryInteractionRepository;
     private final EveTypesRepository eveTypesRepository;
     private final MarketService marketService;
-    private final Helper helper;
+    private final EveImageService eveImageService;
     private final HashMap<Integer, String> planetNames = new HashMap<>(Map.ofEntries(
             //Barren
             Map.entry(1, "Barren"),
@@ -61,13 +61,13 @@ public class PiDataServiceImpl implements PiDataService {
 
     @Override
     public List<PiMat> generatePi(){
-        List<Integer> materials = eveCustomRepositoryImpl.getRawMaterials();
+        List<Integer> materials = planetaryInteractionRepository.getRawMaterials();
        List<PiMat> result = new ArrayList<>(materials.stream().map(id -> {
                    EveType eveType = eveTypesRepository.findEveTypeByTypeId(id).orElse(null);
                    if (eveType == null) {
                        return null;
                    }
-                   Integer schematicID = eveCustomRepositoryImpl.getSchematicId(eveType.getTypeId());
+                   Integer schematicID = planetaryInteractionRepository.getSchematicId(eveType.getTypeId());
                    List<ItemPrice> itemPriceList = marketService.getItemMarketPrice(eveType.getTypeId(), DEFAULT_REGION_ID, SELL_ORDER_TYPE
                    );
                    List<PiDependency> piDependencies;
@@ -77,16 +77,16 @@ public class PiDataServiceImpl implements PiDataService {
                                PiDependency.builder().typeID(list.getKey()).build()
                        ).toList();
                    } else {
-                       piDependencies = eveCustomRepositoryImpl.getPiDependency(schematicID);
+                       piDependencies = planetaryInteractionRepository.getPiDependencies(schematicID);
                    }
-                   Integer cycleTime = eveCustomRepositoryImpl.getCycleTime(schematicID);
+                   Integer cycleTime = planetaryInteractionRepository.getCycleTime(schematicID);
                    return PiMat.builder()
                            .id(eveType.getTypeId())
                            .quantity(type > 1 ? piDependencies.stream().filter(d -> !d.getIsInput()).findFirst()
                                    .map(PiDependency::getQuantity).orElse(null) : null)
                            .price(marketService.getItemSellOrderPrice(DEFAULT_LOCATION_ID, itemPriceList))
                            .name(eveType.getTypeName())
-                           .icon(helper.generateIconLink(eveType.getTypeId(), 32))
+                           .icon(eveImageService.generateIconLink(eveType.getTypeId(), 32))
                            .type(type)
                            .cycleTime(cycleTime)
                            .dependencies(type > 1 ? piDependencies.stream().filter(PiDependency::getIsInput).toList() : piDependencies)

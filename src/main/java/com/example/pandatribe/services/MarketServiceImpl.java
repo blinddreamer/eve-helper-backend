@@ -3,7 +3,6 @@ package com.example.pandatribe.services;
 import com.example.pandatribe.feign.contracts.EveInteractor;
 import com.example.pandatribe.models.market.ItemPrice;
 import com.example.pandatribe.models.market.MarketPriceData;
-//import com.example.pandatribe.repositories.interfaces.ItemPriceRepository;
 import com.example.pandatribe.services.contracts.MarketService;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
@@ -19,11 +18,8 @@ import java.util.Objects;
 @AllArgsConstructor
 public class MarketServiceImpl implements MarketService {
     private static final Logger LOGGER = LoggerFactory.getLogger(MarketServiceImpl.class);
- //   private final ItemPriceRepository itemPriceRepository;
     private final EveInteractor eveInteractor;
     public static final String DATA_SOURCE = "tranquility";
-
-
 
     @Override
     @Cacheable(value = "cacheItemMarketPrice")
@@ -36,11 +32,10 @@ public class MarketServiceImpl implements MarketService {
     @Override
     public BigDecimal getItemSellOrderPrice(Integer locationId, List<ItemPrice> itemPriceList) {
         return itemPriceList.stream()
-               // .filter(itemPrice -> Objects.equals(itemPrice.getLocationId(), locationId))
                 .map(ItemPrice::getPrice)
                 .sorted()
-                .findFirst().orElse(BigDecimal.ZERO);
-
+                .findFirst()
+                .orElse(BigDecimal.ZERO);
     }
     public BigDecimal getItemPriceByOrderType(String orderType, List<ItemPrice> itemPriceList, Long locationId) {
         if (orderType.equals("buy")) {

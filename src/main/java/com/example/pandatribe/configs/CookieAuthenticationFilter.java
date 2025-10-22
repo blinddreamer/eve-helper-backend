@@ -2,7 +2,7 @@ package com.example.pandatribe.configs;
 
 import com.example.pandatribe.models.dbmodels.auth.OAuthToken;
 import com.example.pandatribe.services.authentication.OAuthTokenService;
-import com.example.pandatribe.utils.Helper;
+import com.example.pandatribe.utils.EncodingUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
@@ -23,7 +23,7 @@ import java.util.List;
 public class CookieAuthenticationFilter extends OncePerRequestFilter {
 
     private final OAuthTokenService tokenService;
-    private final Helper encryptor;
+    private final EncodingUtil encodingUtil;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
@@ -33,7 +33,7 @@ public class CookieAuthenticationFilter extends OncePerRequestFilter {
 
         if (encryptedUUID != null) {
             try {
-                String uuid = encryptor.decompressUUID(encryptedUUID).toString();
+                String uuid = encodingUtil.decompressUUID(encryptedUUID).toString();
                 OAuthToken token = tokenService.checkTokenExist(uuid);
 
                 if (token != null && SecurityContextHolder.getContext().getAuthentication() == null) {
