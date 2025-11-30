@@ -15,7 +15,7 @@ import java.util.UUID;
 @RestController
 @AllArgsConstructor
 @RequestMapping("/api/v1/appraisal")
-public class EveAppraisalController {
+public class  EveAppraisalController {
     private static final Logger LOGGER = LoggerFactory.getLogger(EveAppraisalController.class);
     private final JsonLogger jsonLogger;
     private final AppraisalService appraisalService;

@@ -4,7 +4,7 @@ import com.example.pandatribe.models.dbmodels.appraisal.AppraisalData;
 import com.example.pandatribe.models.dbmodels.industry.BlueprintData;
 import com.example.pandatribe.repositories.interfaces.AppraisalDataRepository;
 import com.example.pandatribe.repositories.interfaces.BlueprintDataRepository;
-import com.example.pandatribe.sdeupdater.EveSdeVersionChecker;
+import com.example.pandatribe.sdeupdater.JsonSdeVersionChecker;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +27,7 @@ public class ScheduledJobsService {
 
     private final AppraisalDataRepository appraisalDataRepository;
     private final BlueprintDataRepository blueprintDataRepository;
-    private final EveSdeVersionChecker eveSdeUpdater;
+    private final JsonSdeVersionChecker jsonSdeVersionChecker;
 
     @Scheduled(cron = RUN_EVERY_SUNDAY_AT_4_AM, zone = "UTC")
     public void runWeeklyTask(){
@@ -56,7 +56,7 @@ public class ScheduledJobsService {
     @Scheduled(cron = RUN_DAILY_AT_2_30_AM, zone = "UTC")
     @Transactional
     public void scheduledSdeUpdate() {
-        log.info("Starting scheduled EVE SDE update check...");
-        eveSdeUpdater.checkForUpdates();
+        log.info("Starting scheduled EVE SDE update check (JSON format)...");
+        jsonSdeVersionChecker.checkForUpdates();
     }
 }

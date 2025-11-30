@@ -19,6 +19,11 @@ import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * @deprecated Use {@link JsonSdeVersionChecker} instead. This class is for the old Fuzzwork SQL format.
+ * The EVE SDE has moved to JSON format from the official EVE developers site.
+ */
+@Deprecated(since = "2025-01", forRemoval = true)
 @Slf4j
 @Service
 public class EveSdeVersionChecker {
