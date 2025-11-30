@@ -14,13 +14,13 @@ import java.util.UUID;
 
 @RestController
 @AllArgsConstructor
-@RequestMapping("/api/v1/")
-public class EveAppraisalController {
+@RequestMapping("/api/v1/appraisal")
+public class  EveAppraisalController {
     private static final Logger LOGGER = LoggerFactory.getLogger(EveAppraisalController.class);
     private final JsonLogger jsonLogger;
     private final AppraisalService appraisalService;
 
-    @PostMapping("appraisal")
+    @PostMapping()
     public ResponseEntity<String> getAppraisalPrices(@RequestBody AppraisalRequest request){
         String requestId = UUID.randomUUID().toString();
         LOGGER.info("REQUEST for appraisal with id {} received: ",requestId);
@@ -31,7 +31,7 @@ public class EveAppraisalController {
         return ResponseEntity.ok(appraisalResult);
     }
 
-    @GetMapping("appraisal/{id}")
+    @GetMapping("/{id}")
     public ResponseEntity<AppraisalData> getAppraisalPrices(@PathVariable String id){
 
         LOGGER.info("REQUEST for appraisal with id {} received: ",id);

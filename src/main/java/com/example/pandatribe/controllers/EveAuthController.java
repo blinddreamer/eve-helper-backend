@@ -4,7 +4,7 @@ import com.example.pandatribe.models.dbmodels.auth.OAuthToken;
 import com.example.pandatribe.models.results.CharResult;
 import com.example.pandatribe.services.authentication.OAuthTokenService;
 import com.example.pandatribe.services.character.CharacterServiceImpl;
-import com.example.pandatribe.utils.Helper;
+import com.example.pandatribe.utils.EncodingUtil;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.AllArgsConstructor;
@@ -25,7 +25,7 @@ import java.util.UUID;
 public class EveAuthController {
     private final OAuthTokenService tokenService;
     private final CharacterServiceImpl characterService;
-    private final Helper helper;
+    private final EncodingUtil encodingUtil;
 
     @GetMapping("/callback")
     public void handleCallback(@RequestParam("code") String code, HttpServletResponse response) throws IOException {
@@ -33,7 +33,7 @@ public class EveAuthController {
         // Use the authorization code to get access and refresh tokens
         OAuthToken savedToken =  tokenService.exchangeCodeForTokens(code);
 
-        String cookieValue = helper.compressUUID(UUID.fromString(savedToken.getAccountId()));
+        String cookieValue = encodingUtil.compressUUID(UUID.fromString(savedToken.getAccountId()));
         Cookie sessionCookie = new Cookie("sessionUUID", cookieValue);
         sessionCookie.setHttpOnly(true);
         sessionCookie.setSecure(true);
@@ -51,7 +51,7 @@ public class EveAuthController {
         if (sessionUUID == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("No active session");
         }
-        CharResult character = characterService.getCharacter(helper.decompressUUID(sessionUUID));
+        CharResult character = characterService.getCharacter(encodingUtil.decompressUUID(sessionUUID));
         if (character == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Session expired or invalid");
         }
@@ -66,7 +66,7 @@ public class EveAuthController {
         }
 
         // Check if session is valid (exists in DB)
-        String id = helper.decompressUUID(sessionUUID).toString();
+        String id = encodingUtil.decompressUUID(sessionUUID).toString();
         OAuthToken token = tokenService.checkTokenExist(id);
         if (token == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid session, please log in again");
@@ -101,7 +101,7 @@ public class EveAuthController {
         if (sessionUUID == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Session expired, please log in again");
         }
-        String id = helper.decompressUUID(sessionUUID).toString();
+        String id = encodingUtil.decompressUUID(sessionUUID).toString();
         OAuthToken token = tokenService.checkTokenExist(id);
         if (token == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid session, please log in again");

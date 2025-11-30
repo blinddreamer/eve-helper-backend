@@ -6,12 +6,13 @@ import com.example.pandatribe.models.market.ItemPrice;
 import com.example.pandatribe.models.requests.AppraisalRequest;
 import com.example.pandatribe.models.results.AppraisalResult;
 import com.example.pandatribe.models.results.AppraisalResultEntity;
+import com.example.pandatribe.repositories.BlueprintQueryRepository;
 import com.example.pandatribe.repositories.interfaces.AppraisalDataRepository;
-import com.example.pandatribe.repositories.interfaces.EveCustomRepository;
 import com.example.pandatribe.repositories.interfaces.EveTypesRepository;
 import com.example.pandatribe.services.contracts.AppraisalService;
 import com.example.pandatribe.services.contracts.MarketService;
-import com.example.pandatribe.utils.Helper;
+import com.example.pandatribe.utils.EncodingUtil;
+import com.example.pandatribe.utils.EveImageService;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,9 +31,10 @@ public class AppraisalServiceImpl implements AppraisalService {
     public static final Long DEFAULT_LOCATION_ID = Long.parseLong( "60003760");
     private final MarketService marketService;
     private final EveTypesRepository eveTypesRepository;
-    private final EveCustomRepository eveCustomRepository;
+    private final BlueprintQueryRepository blueprintQueryRepository;
     private final AppraisalDataRepository appraisalDataRepository;
-    private final Helper helper;
+    private final EveImageService eveImageService;
+    private final EncodingUtil encodingUtil;
 
     @Override
     public String generateAppraisalResult(AppraisalRequest appraisalRequest) {
@@ -43,7 +45,7 @@ public class AppraisalServiceImpl implements AppraisalService {
                 LOGGER.error("Eve ITEM with name {} was not found",appraisal.getName());
                 return null;
             }
-         Integer volume = eveCustomRepository.getVolume(eveType.getTypeId());
+         Integer volume = blueprintQueryRepository.getVolume(eveType.getTypeId());
                  Long locationId = Optional.ofNullable(appraisalRequest.getRegionId()).map(s-> s.split("_")[1]).map(Long::parseLong).orElse(DEFAULT_LOCATION_ID);
                  Integer regionId = Optional.ofNullable(appraisalRequest.getRegionId()).map(s-> s.split("_")[0]).map(Integer::parseInt).orElse(REGION_ID);
          List<ItemPrice> itemPriceList = marketService
@@ -51,7 +53,7 @@ public class AppraisalServiceImpl implements AppraisalService {
          BigDecimal buyOrderPrice = marketService.getItemPriceByOrderType("buy", itemPriceList,locationId);
          BigDecimal sellOrderPrice = marketService.getItemPriceByOrderType("sell", itemPriceList,locationId);
             return AppraisalResultEntity.builder()
-                    .icon(helper.generateIconLink(eveType.getTypeId(),32))
+                    .icon(eveImageService.generateIconLink(eveType.getTypeId(),32))
                     .quantity(appraisal.getQuantity())
                     .volume(Objects.nonNull(volume) ? volume : eveType.getVolume())
                     .item(eveType.getTypeName())
@@ -79,7 +81,7 @@ public class AppraisalServiceImpl implements AppraisalService {
                 .totalVolume(appraisalEntities.stream().map(a -> a.getVolume()*a.getQuantity()).reduce(Double::sum).orElse(0.0))
                 .build();
         UUID uuid = UUID.randomUUID();
-        String shortenLink = helper.compressUUID(uuid);
+        String shortenLink = encodingUtil.compressUUID(uuid);
         appraisalDataRepository.saveAndFlush(AppraisalData.builder().id(uuid).appraisalResult(appraisalResult).creationDate(new Date())
                         .comment(appraisalRequest.getComment())
                         .system(appraisalRequest.getSystem())
@@ -92,7 +94,7 @@ public class AppraisalServiceImpl implements AppraisalService {
     }
 
     public AppraisalData getAppraisalResult(String id) {
-        UUID uuid = helper.decompressUUID(id);
+        UUID uuid = encodingUtil.decompressUUID(id);
         Optional<AppraisalData> appraisalData = appraisalDataRepository.findById(uuid);
         if(appraisalData.isPresent()){
             return appraisalData.get();

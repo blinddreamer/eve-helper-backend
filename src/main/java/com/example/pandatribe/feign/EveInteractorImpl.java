@@ -11,7 +11,7 @@ import com.example.pandatribe.models.characters.CharacterLoginInfo;
 import com.example.pandatribe.models.industry.SystemCostIndexes;
 import com.example.pandatribe.models.market.ItemPrice;
 import com.example.pandatribe.models.market.MarketPriceData;
-import com.example.pandatribe.utils.Helper;
+import com.example.pandatribe.utils.AuthTokenUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -32,7 +32,7 @@ public class EveInteractorImpl implements EveInteractor {
     @Value("${EVE_CLIENT_SECRET}")
     private String clientSecret;
     private final FeignConfig feign;
-    private final Helper helper;
+    private final AuthTokenUtil authTokenUtil;
     public static final String API_ADDRESS = "https://esi.evetech.net";
     @Value("${NTFY_SELECTED_ADDRESS}")
     private String ntfyAddress;
@@ -43,13 +43,13 @@ public class EveInteractorImpl implements EveInteractor {
 
     @Override
     public TokenResponse requestAccessToken(TokenRequest request) {
-        return feign.getRestClientWithAuthentication(EveApiList.class,AUTH_ADDRESS, helper.generateBasicAuthToken(clientId, clientSecret), BASIC_AUTH_PREFIX)
+        return feign.getRestClientWithAuthentication(EveApiList.class,AUTH_ADDRESS, authTokenUtil.generateBasicAuthToken(clientId, clientSecret), BASIC_AUTH_PREFIX)
                 .requestAccessToken(request.getGrantType(), request.getCode());
     }
 
     @Override
     public TokenResponse requestRefreshToken(RefreshTokenRequest request) {
-        return feign.getRestClientWithAuthentication(EveApiList.class, AUTH_ADDRESS, helper.generateBasicAuthToken(clientId, clientSecret), BASIC_AUTH_PREFIX)
+        return feign.getRestClientWithAuthentication(EveApiList.class, AUTH_ADDRESS, authTokenUtil.generateBasicAuthToken(clientId, clientSecret), BASIC_AUTH_PREFIX)
                 .requestRefreshToken(request.getGrant_type(), request.getRefresh_token());
     }
 

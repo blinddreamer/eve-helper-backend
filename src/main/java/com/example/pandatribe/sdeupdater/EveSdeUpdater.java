@@ -23,6 +23,11 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 
+/**
+ * @deprecated Use {@link JsonSdeUpdater} instead. This class is for the old Fuzzwork SQL format.
+ * The EVE SDE has moved to JSON format from the official EVE developers site.
+ */
+@Deprecated(since = "2025-01", forRemoval = true)
 @Slf4j
 @Service
 @RequiredArgsConstructor
