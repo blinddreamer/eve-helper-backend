@@ -9,7 +9,7 @@ public class CorsConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOrigins("https://eve-helper.com","http://localhost:3000") // REMOVE "*" or multiple origins if using credentials
+                .allowedOrigins("https://eve-helper.com","http://localhost:3000","http://192.168.250.24:3000") // REMOVE "*" or multiple origins if using credentials
                 .allowedMethods("GET", "POST", "PUT", "DELETE")
                 .allowedHeaders("Authorization", "Content-Type") // Set required headers
                 .exposedHeaders("Set-Cookie") // Expose cookies to frontend
