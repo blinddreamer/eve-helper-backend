@@ -9,7 +9,7 @@ RUN mvn clean package -DskipTests
 
 
 # ---- Runtime image ----
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:17-jdk-alpine
 
 WORKDIR /app
 COPY --from=builder /app/target/eve-helper-backend-0.0.1-SNAPSHOT.jar eve-helper-backend.jar
