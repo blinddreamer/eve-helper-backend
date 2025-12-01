@@ -28,7 +28,7 @@ public class BlueprintsConverter extends SdeJsonToSqlConverter {
         // Industry Activity Materials table
         writer.write("CREATE TABLE industryActivityMaterials (\n");
         writer.write("  typeID INT NOT NULL,\n");
-        writer.write("  activityID TINYINT NOT NULL,\n");
+        writer.write("  activityID INT NOT NULL,\n");
         writer.write("  materialTypeID INT NOT NULL,\n");
         writer.write("  quantity INT NOT NULL,\n");
         writer.write("  PRIMARY KEY (typeID, activityID, materialTypeID)\n");
@@ -37,7 +37,7 @@ public class BlueprintsConverter extends SdeJsonToSqlConverter {
         // Industry Activity Products table
         writer.write("CREATE TABLE industryActivityProducts (\n");
         writer.write("  typeID INT NOT NULL,\n");
-        writer.write("  activityID TINYINT NOT NULL,\n");
+        writer.write("  activityID INT NOT NULL,\n");
         writer.write("  productTypeID INT NOT NULL,\n");
         writer.write("  quantity INT,\n");
         writer.write("  PRIMARY KEY (typeID, activityID, productTypeID)\n");
@@ -68,7 +68,7 @@ public class BlueprintsConverter extends SdeJsonToSqlConverter {
                 JsonNode activity = entry.getValue();
 
                 // Map activity names to IDs
-                byte activityID = getActivityId(activityName);
+                int activityID = getActivityId(activityName);
 
                 try {
                     // Process materials
@@ -133,7 +133,7 @@ public class BlueprintsConverter extends SdeJsonToSqlConverter {
      * Maps activity names to numeric IDs
      * Based on EVE SDE conventions
      */
-    private byte getActivityId(String activityName) {
+    private int getActivityId(String activityName) {
         return switch (activityName) {
             case "manufacturing" -> 1;
             case "research_time" -> 3;

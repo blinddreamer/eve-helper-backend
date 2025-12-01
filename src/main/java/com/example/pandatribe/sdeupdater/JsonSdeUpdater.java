@@ -20,6 +20,7 @@ import java.net.URL;
 import java.nio.file.*;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -33,8 +34,8 @@ import java.util.zip.ZipInputStream;
 @Service
 public class JsonSdeUpdater {
 
-    @Value("${eve.sde.json.download.url:https://eve-static-data-export.s3-eu-west-1.amazonaws.com/tranquility/sde.zip}")
-    private String sdeDownloadUrl;
+    @Value("${eve.sde.json.download.url.template:https://developers.eveonline.com/static-data/tranquility/eve-online-static-data-{version}-jsonl.zip}")
+    private String sdeDownloadUrlTemplate;
 
     @Value("${eve.sde.temp.dir:temp_sde_downloads}")
     private String tempDir;
@@ -115,12 +116,21 @@ public class JsonSdeUpdater {
      * Downloads the SDE ZIP file from the official source
      */
     private void downloadSdeZip() throws IOException {
+        // Get the server version from the trigger file
+        String serverVersion = readServerVersionFromTrigger();
+        if (serverVersion == null) {
+            throw new IOException("Cannot download SDE: server version not found in trigger file");
+        }
+
+        // Construct the download URL with the server version
+        String downloadUrl = sdeDownloadUrlTemplate.replace("{version}", serverVersion);
+
         Path targetFile = Paths.get(tempDir, "sde.zip");
         Files.createDirectories(targetFile.getParent());
 
-        log.info("Downloading SDE ZIP from: {}", sdeDownloadUrl);
+        log.info("Downloading SDE ZIP version {} from: {}", serverVersion, downloadUrl);
 
-        URL url = new URL(sdeDownloadUrl);
+        URL url = new URL(downloadUrl);
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setConnectTimeout(60000);
         connection.setReadTimeout(300000); // 5 minutes for large file
@@ -369,6 +379,21 @@ public class JsonSdeUpdater {
 
     private boolean updateTriggerExists() {
         return Files.exists(Paths.get("data/sde_update_trigger.txt"));
+    }
+
+    private String readServerVersionFromTrigger() {
+        try {
+            Path triggerFile = Paths.get("data/sde_update_trigger.txt");
+            if (Files.exists(triggerFile)) {
+                List<String> lines = Files.readAllLines(triggerFile);
+                if (!lines.isEmpty()) {
+                    return lines.get(0).trim();
+                }
+            }
+        } catch (IOException e) {
+            log.warn("Failed to read server version from trigger file", e);
+        }
+        return null;
     }
 
     private void clearUpdateTrigger() throws IOException {

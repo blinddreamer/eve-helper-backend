@@ -1,10 +1,7 @@
 package com.example.pandatribe.sdeupdater;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -21,24 +18,17 @@ import java.util.*;
 
 /**
  * Service to check for EVE SDE updates from the official EVE Online developers site.
- * Monitors the JSON format SDE releases and triggers updates when new versions are detected.
+ * Monitors the JSON format SDE releases by querying the ESI /status/ endpoint for server_version.
  */
 @Slf4j
 @Service
 public class JsonSdeVersionChecker {
-
-    @Value("${eve.sde.url:https://developers.eveonline.com/static-data}")
-    private String sdeUrl;
-
-    @Value("${eve.sde.checksum.url:https://eve-static-data-export.s3-eu-west-1.amazonaws.com/tranquility/checksum}")
-    private String sdeChecksumUrl;
 
     @Value("${eve.sde.tracking.file:data/sde_tracker.properties}")
     private String trackingFile;
 
     private final Properties trackedVersions = new Properties();
     private final JsonSdeUpdater jsonSdeUpdater;
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     // Constructor injection - JsonSdeUpdater is always required
     public JsonSdeVersionChecker(JsonSdeUpdater jsonSdeUpdater) {
@@ -74,14 +64,15 @@ public class JsonSdeVersionChecker {
     }
 
     /**
-     * Gets the current remote SDE version by fetching the checksum file
-     * which contains the build number and release date.
+     * Gets the current remote SDE version by checking ESI /status/ endpoint
+     * which provides the server_version number used in SDE filenames.
      *
-     * @return version identifier (build number + release date hash)
+     * @return server version string (e.g., "3118350")
      */
     private String getCurrentRemoteVersion() {
         try {
-            URL url = new URL(sdeChecksumUrl);
+            // Query ESI status endpoint to get current server version
+            URL url = new URL("https://esi.evetech.net/latest/status/");
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
             connection.setConnectTimeout(30000);
@@ -89,21 +80,33 @@ public class JsonSdeVersionChecker {
 
             if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
                 try (InputStream is = connection.getInputStream()) {
-                    JsonNode checksumData = objectMapper.readTree(is);
+                    // Read JSON response
+                    StringBuilder response = new StringBuilder();
+                    byte[] buffer = new byte[1024];
+                    int bytesRead;
+                    while ((bytesRead = is.read(buffer)) != -1) {
+                        response.append(new String(buffer, 0, bytesRead));
+                    }
 
-                    // Extract version info from checksum JSON
-                    String buildNumber = checksumData.has("build") ?
-                        checksumData.get("build").asText() : "";
-                    String releaseDate = checksumData.has("date") ?
-                        checksumData.get("date").asText() : "";
-
-                    String versionId = buildNumber + "|" + releaseDate;
-                    return DigestUtils.sha256Hex(versionId);
+                    // Parse server_version from JSON
+                    // Example: {"players":23125,"server_version":"3118350","start_time":"..."}
+                    String json = response.toString();
+                    String versionKey = "\"server_version\":\"";
+                    int startIndex = json.indexOf(versionKey);
+                    if (startIndex != -1) {
+                        startIndex += versionKey.length();
+                        int endIndex = json.indexOf("\"", startIndex);
+                        if (endIndex != -1) {
+                            String serverVersion = json.substring(startIndex, endIndex);
+                            log.debug("SDE server_version from ESI: {}", serverVersion);
+                            return serverVersion;
+                        }
+                    }
                 }
             }
             connection.disconnect();
         } catch (IOException e) {
-            log.warn("Failed to check SDE version: {}", e.getMessage());
+            log.warn("Failed to check SDE version from ESI: {}", e.getMessage());
         }
         return null;
     }

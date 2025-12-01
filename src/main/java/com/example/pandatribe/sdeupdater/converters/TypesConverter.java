@@ -33,9 +33,9 @@ public class TypesConverter extends SdeJsonToSqlConverter {
         writer.write("  volume DOUBLE,\n");
         writer.write("  capacity DOUBLE,\n");
         writer.write("  portionSize INT,\n");
-        writer.write("  raceID TINYINT,\n");
+        writer.write("  raceID INT,\n");
         writer.write("  basePrice DECIMAL(19,4),\n");
-        writer.write("  published TINYINT,\n");
+        writer.write("  published TINYINT(1),\n");
         writer.write("  marketGroupID INT,\n");
         writer.write("  iconID INT,\n");
         writer.write("  soundID INT,\n");
@@ -55,6 +55,8 @@ public class TypesConverter extends SdeJsonToSqlConverter {
     protected void writeInsertStatements(BufferedWriter writer, List<JsonNode> records) throws IOException {
         StringBuilder typesInsert = new StringBuilder("INSERT INTO invTypes (typeID, groupID, typeName, description, mass, volume, capacity, portionSize, raceID, basePrice, published, marketGroupID, iconID, soundID, graphicID) VALUES\n");
         StringBuilder volumesInsert = new StringBuilder("INSERT INTO invVolumes (typeID, volume) VALUES\n");
+
+        boolean hasVolumes = false;
 
         for (int i = 0; i < records.size(); i++) {
             JsonNode type = records.get(i);
@@ -104,21 +106,25 @@ public class TypesConverter extends SdeJsonToSqlConverter {
             // Add to volumes insert if volume exists
             JsonNode volumeNode = type.get("volume");
             if (volumeNode != null && !volumeNode.isNull()) {
-                if (i > 0) {
+                if (hasVolumes) {
                     volumesInsert.append(",\n");
                 }
                 volumesInsert.append("(")
                     .append(typeID).append(", ")
                     .append(volumeNode.asDouble())
                     .append(")");
+                hasVolumes = true;
             }
         }
 
         typesInsert.append(";\n\n");
         writer.write(typesInsert.toString());
 
-        volumesInsert.append(";\n\n");
-        writer.write(volumesInsert.toString());
+        // Only write volumes INSERT if we have data
+        if (hasVolumes) {
+            volumesInsert.append(";\n\n");
+            writer.write(volumesInsert.toString());
+        }
     }
 
     @Override
