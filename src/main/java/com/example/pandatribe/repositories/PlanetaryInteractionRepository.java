@@ -60,11 +60,23 @@ public class PlanetaryInteractionRepository {
 
         return result.isEmpty() ? new ArrayList<>() :
                 result.stream()
-                        .map(row -> PiDependency.builder()
-                                .typeID((Integer) row.get("typeID"))
-                                .isInput(((Number) row.get("isInput")).intValue() == 1)
-                                .quantity((Integer) row.get("quantity"))
-                                .build())
+                        .map(row -> {
+                            Object isInputValue = row.get("isInput");
+                            boolean isInput;
+                            if (isInputValue instanceof Boolean) {
+                                isInput = (Boolean) isInputValue;
+                            } else if (isInputValue instanceof Number) {
+                                isInput = ((Number) isInputValue).intValue() == 1;
+                            } else {
+                                isInput = false; // Default fallback
+                            }
+
+                            return PiDependency.builder()
+                                    .typeID((Integer) row.get("typeID"))
+                                    .isInput(isInput)
+                                    .quantity((Integer) row.get("quantity"))
+                                    .build();
+                        })
                         .toList();
     }
 
@@ -78,7 +90,7 @@ public class PlanetaryInteractionRepository {
     public Integer getSchematicId(Integer typeId) {
         String nativeQuery = "SELECT schematicID " +
                 "FROM planetSchematicsTypeMap " +
-                "WHERE typeID = :typeId AND isInput = false";
+                "WHERE typeID = :typeId AND isInput = 0";
 
         List<Tuple> result = entityManager.createNativeQuery(nativeQuery, Tuple.class)
                 .setParameter("typeId", typeId)
