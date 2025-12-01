@@ -62,7 +62,7 @@ public class PlanetaryInteractionRepository {
                 result.stream()
                         .map(row -> PiDependency.builder()
                                 .typeID((Integer) row.get("typeID"))
-                                .isInput((Boolean) row.get("isInput"))
+                                .isInput(((Number) row.get("isInput")).intValue() == 1)
                                 .quantity((Integer) row.get("quantity"))
                                 .build())
                         .toList();

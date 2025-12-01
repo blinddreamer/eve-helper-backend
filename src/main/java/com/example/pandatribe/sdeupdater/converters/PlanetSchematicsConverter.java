@@ -34,7 +34,7 @@ public class PlanetSchematicsConverter extends SdeJsonToSqlConverter {
         writer.write("  schematicID INT NOT NULL,\n");
         writer.write("  typeID INT NOT NULL,\n");
         writer.write("  quantity INT,\n");
-        writer.write("  isInput TINYINT,\n");
+        writer.write("  isInput TINYINT(1),\n");
         writer.write("  PRIMARY KEY (schematicID, typeID)\n");
         writer.write(") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;\n\n");
     }
