@@ -10,6 +10,10 @@ import java.util.List;
 
 /**
  * Converts npcStations.jsonl to SQL for staStations table
+ *
+ * NOTE: The new SDE JSON format does NOT include station names.
+ * Station names were previously in invNames table or must be fetched via ESI API.
+ * The stationName field will be NULL after import and should be populated separately.
  */
 @Slf4j
 @Component
@@ -17,6 +21,18 @@ public class NpcStationsConverter extends SdeJsonToSqlConverter {
 
     @Override
     protected void writeDropStatement(BufferedWriter writer) throws IOException {
+        // Backup existing station names before dropping (if table exists)
+        writer.write("DROP TABLE IF EXISTS staStations_backup;\n");
+        writer.write("CREATE TABLE staStations_backup (stationID BIGINT, stationName VARCHAR(255));\n\n");
+        writer.write("-- Backup station names if table exists\n");
+        writer.write("SET @table_exists = (SELECT COUNT(*) FROM information_schema.tables \n");
+        writer.write("  WHERE table_schema = DATABASE() AND table_name = 'staStations');\n");
+        writer.write("SET @sql_backup = IF(@table_exists > 0,\n");
+        writer.write("  'INSERT INTO staStations_backup SELECT stationID, stationName FROM staStations WHERE stationName IS NOT NULL',\n");
+        writer.write("  'SELECT 1');\n");
+        writer.write("PREPARE stmt FROM @sql_backup;\n");
+        writer.write("EXECUTE stmt;\n");
+        writer.write("DEALLOCATE PREPARE stmt;\n\n");
         writer.write("DROP TABLE IF EXISTS staStations;\n\n");
     }
 
@@ -66,6 +82,12 @@ public class NpcStationsConverter extends SdeJsonToSqlConverter {
 
     @Override
     protected void writeIndexStatements(BufferedWriter writer) throws IOException {
+        // Restore station names from backup (new JSON format doesn't include names)
+        writer.write("UPDATE staStations s\n");
+        writer.write("INNER JOIN staStations_backup b ON s.stationID = b.stationID\n");
+        writer.write("SET s.stationName = b.stationName;\n\n");
+        writer.write("DROP TABLE IF EXISTS staStations_backup;\n\n");
+
         writer.write("CREATE INDEX idx_stations_name ON staStations(stationName);\n");
         writer.write("CREATE INDEX idx_stations_system ON staStations(solarSystemID);\n");
         writer.write("CREATE INDEX idx_stations_region ON staStations(regionID);\n");
