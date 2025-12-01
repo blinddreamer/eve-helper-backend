@@ -11,9 +11,17 @@ import java.util.List;
 /**
  * Converts npcStations.jsonl to SQL for staStations table
  *
- * NOTE: The new SDE JSON format does NOT include station names.
- * Station names were previously in invNames table or must be fetched via ESI API.
- * The stationName field will be NULL after import and should be populated separately.
+ * IMPORTANT NOTES about new JSON format limitations:
+ * 1. Station names NOT included - backs up and restores from old table
+ * 2. regionID NOT included - populated via JOIN with mapSolarSystems
+ *
+ * The new JSON format only provides:
+ * - stationID (_key)
+ * - solarSystemID
+ * - typeID
+ * - operation info
+ *
+ * Missing data is restored/populated via UPDATE statements after INSERT.
  */
 @Slf4j
 @Component
@@ -71,7 +79,7 @@ public class NpcStationsConverter extends SdeJsonToSqlConverter {
                 .append(stationID).append(", ")
                 .append(stationName).append(", ")
                 .append(getInt(station, "solarSystemID")).append(", ")
-                .append(getInt(station, "regionID")).append(", ")
+                .append(sqlNull()).append(", ")  // regionID - will be populated from mapSolarSystems
                 .append(getInt(station, "typeID"))
                 .append(")");
         }
@@ -87,6 +95,11 @@ public class NpcStationsConverter extends SdeJsonToSqlConverter {
         writer.write("INNER JOIN staStations_backup b ON s.stationID = b.stationID\n");
         writer.write("SET s.stationName = b.stationName;\n\n");
         writer.write("DROP TABLE IF EXISTS staStations_backup;\n\n");
+
+        // Populate regionID from mapSolarSystems (new JSON format doesn't include regionID)
+        writer.write("UPDATE staStations s\n");
+        writer.write("INNER JOIN mapSolarSystems sys ON s.solarSystemID = sys.solarSystemID\n");
+        writer.write("SET s.regionID = sys.regionID;\n\n");
 
         writer.write("CREATE INDEX idx_stations_name ON staStations(stationName);\n");
         writer.write("CREATE INDEX idx_stations_system ON staStations(solarSystemID);\n");
