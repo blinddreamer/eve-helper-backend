@@ -29,6 +29,15 @@ public class CacheConfig {
     @CacheEvict(cacheNames = "cacheItemMarketPrice",allEntries = true)
     public void evictCacheItemMarketPrice(){LOGGER.info("Cache cacheItemMarketPrice was cleared");}
 
+    /**
+     * Manual cache eviction methods for static data.
+     * These can be called manually when needed (e.g., after SDE update).
+     */
+    @CacheEvict(cacheNames = {"blueprints", "regions", "stations", "systemNames"}, allEntries = true)
+    public void evictAllStaticDataCaches(){
+        LOGGER.info("All static data caches (blueprints, regions, stations, systemNames) were cleared");
+    }
+
     @Scheduled(fixedRate = 900_000) // 15 minutes = 900,000 milliseconds
     public void triggerEvictCacheCalculator(){
         evictCacheCalculator();
@@ -40,7 +49,7 @@ public class CacheConfig {
         evictCacheCostIndexes();
     }
 
-    @Scheduled(cron = "0 0 4 * * *") // every everyDay at 4
+    @Scheduled(cron = "0 0 4 * * *") // every day at 4
     public void triggerEvictCacheDaily(){
         evictCacheMarketPrices();
     }

@@ -125,4 +125,113 @@ public class PlanetaryInteractionRepository {
                         .map(row -> (Integer) row.get("cycleTime"))
                         .orElse(null);
     }
+
+    /**
+     * Bulk fetch: Retrieves schematic IDs for all given type IDs in a single query.
+     * Optimized to avoid N+1 queries.
+     *
+     * @param typeIds List of type IDs
+     * @return Map of typeId -> schematicId
+     */
+    @Transactional(readOnly = true)
+    public java.util.Map<Integer, Integer> getSchematicIdsBulk(List<Integer> typeIds) {
+        if (typeIds == null || typeIds.isEmpty()) {
+            return new java.util.HashMap<>();
+        }
+
+        String nativeQuery = "SELECT typeID, schematicID " +
+                "FROM planetSchematicsTypeMap " +
+                "WHERE typeID IN :typeIds AND isInput = 0";
+
+        List<Tuple> result = entityManager.createNativeQuery(nativeQuery, Tuple.class)
+                .setParameter("typeIds", typeIds)
+                .getResultList();
+
+        return result.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        row -> (Integer) row.get("typeID"),
+                        row -> (Integer) row.get("schematicID"),
+                        (existing, replacement) -> existing // Keep first if duplicates
+                ));
+    }
+
+    /**
+     * Bulk fetch: Retrieves cycle times for all given schematic IDs in a single query.
+     * Optimized to avoid N+1 queries.
+     *
+     * @param schematicIds List of schematic IDs
+     * @return Map of schematicId -> cycleTime
+     */
+    @Transactional(readOnly = true)
+    public java.util.Map<Integer, Integer> getCycleTimesBulk(List<Integer> schematicIds) {
+        if (schematicIds == null || schematicIds.isEmpty()) {
+            return new java.util.HashMap<>();
+        }
+
+        String nativeQuery = "SELECT schematicID, cycleTime " +
+                "FROM planetSchematics " +
+                "WHERE schematicID IN :schematicIds";
+
+        List<Tuple> result = entityManager.createNativeQuery(nativeQuery, Tuple.class)
+                .setParameter("schematicIds", schematicIds)
+                .getResultList();
+
+        return result.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        row -> (Integer) row.get("schematicID"),
+                        row -> (Integer) row.get("cycleTime"),
+                        (existing, replacement) -> existing // Keep first if duplicates
+                ));
+    }
+
+    /**
+     * Bulk fetch: Retrieves all PI dependencies for given schematic IDs in a single query.
+     * Optimized to avoid N+1 queries.
+     *
+     * @param schematicIds List of schematic IDs
+     * @return Map of schematicId -> List of dependencies
+     */
+    @Transactional(readOnly = true)
+    public java.util.Map<Integer, List<PiDependency>> getPiDependenciesBulk(List<Integer> schematicIds) {
+        if (schematicIds == null || schematicIds.isEmpty()) {
+            return new java.util.HashMap<>();
+        }
+
+        String nativeQuery = "SELECT DISTINCT schematicID, quantity, typeID, isInput " +
+                "FROM planetSchematicsTypeMap " +
+                "WHERE schematicID IN :schematicIds";
+
+        List<Tuple> result = entityManager.createNativeQuery(nativeQuery, Tuple.class)
+                .setParameter("schematicIds", schematicIds)
+                .getResultList();
+
+        return result.stream()
+                .map(row -> {
+                    Object isInputValue = row.get("isInput");
+                    boolean isInput;
+                    if (isInputValue instanceof Boolean) {
+                        isInput = (Boolean) isInputValue;
+                    } else if (isInputValue instanceof Number) {
+                        isInput = ((Number) isInputValue).intValue() == 1;
+                    } else {
+                        isInput = false;
+                    }
+
+                    Integer schematicId = (Integer) row.get("schematicID");
+                    PiDependency dependency = PiDependency.builder()
+                            .typeID((Integer) row.get("typeID"))
+                            .isInput(isInput)
+                            .quantity((Integer) row.get("quantity"))
+                            .build();
+
+                    return new java.util.AbstractMap.SimpleEntry<>(schematicId, dependency);
+                })
+                .collect(java.util.stream.Collectors.groupingBy(
+                        java.util.Map.Entry::getKey,
+                        java.util.stream.Collectors.mapping(
+                                java.util.Map.Entry::getValue,
+                                java.util.stream.Collectors.toList()
+                        )
+                ));
+    }
 }

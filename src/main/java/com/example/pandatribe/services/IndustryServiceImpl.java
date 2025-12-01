@@ -17,7 +17,7 @@ public class IndustryServiceImpl implements IndustryService {
     private static final Logger LOGGER = LoggerFactory.getLogger(IndustryServiceImpl.class);
     private final EveInteractor eveInteractor;
     @Override
-    @Cacheable("cacheCostIndexes")
+    @Cacheable(value = "cacheCostIndexes", cacheManager = "costIndexCacheManager")
     public List<SystemCostIndexes> getSystemCostIndexes() {
        List<SystemCostIndexes> costIndexes = eveInteractor.getSystemCostIndexes();
        LOGGER.info("Cost indexes received {}", !costIndexes.isEmpty());

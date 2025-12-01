@@ -52,6 +52,9 @@ public class JsonSdeUpdater {
     @Autowired
     private DataSource dataSource;
 
+    @Autowired(required = false)
+    private com.example.pandatribe.configs.CacheConfig cacheConfig;
+
     // Converter beans
     @Autowired
     private BlueprintsConverter blueprintsConverter;
@@ -99,6 +102,7 @@ public class JsonSdeUpdater {
             extractSdeZip();
             convertJsonToSql();
             runFlywayMigration();
+            clearStaticDataCaches();
             clearUpdateTrigger();
             cleanupTempFiles();
 
@@ -393,6 +397,23 @@ public class JsonSdeUpdater {
     private void clearUpdateTrigger() throws IOException {
         Files.deleteIfExists(Paths.get("data/sde_update_trigger.txt"));
         log.debug("Cleared update trigger");
+    }
+
+    /**
+     * Clears static data caches after successful SDE update.
+     * This ensures users see updated data immediately without waiting for cache expiration.
+     */
+    private void clearStaticDataCaches() {
+        if (cacheConfig != null) {
+            try {
+                cacheConfig.evictAllStaticDataCaches();
+                log.info("Cleared static data caches (blueprints, regions, stations, systemNames)");
+            } catch (Exception e) {
+                log.warn("Failed to clear static data caches after SDE update", e);
+            }
+        } else {
+            log.debug("CacheConfig not available, skipping cache clear");
+        }
     }
 
     /**

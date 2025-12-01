@@ -61,25 +61,45 @@ public class PiDataServiceImpl implements PiDataService {
 
     @Override
     public List<PiMat> generatePi(){
+        // Fetch all PI materials
         List<Integer> materials = planetaryInteractionRepository.getRawMaterials();
-       List<PiMat> result = new ArrayList<>(materials.stream().map(id -> {
+
+        // Bulk fetch all schematic IDs in one query
+        Map<Integer, Integer> schematicIdMap = planetaryInteractionRepository.getSchematicIdsBulk(materials);
+
+        // Bulk fetch all cycle times in one query
+        List<Integer> schematicIds = new ArrayList<>(schematicIdMap.values());
+        Map<Integer, Integer> cycleTimeMap = planetaryInteractionRepository.getCycleTimesBulk(schematicIds);
+
+        // Bulk fetch all PI dependencies in one query
+        Map<Integer, List<PiDependency>> dependenciesMap = planetaryInteractionRepository.getPiDependenciesBulk(schematicIds);
+
+        List<PiMat> result = new ArrayList<>(materials.stream().map(id -> {
                    EveType eveType = eveTypesRepository.findEveTypeByTypeId(id).orElse(null);
                    if (eveType == null) {
                        return null;
                    }
-                   Integer schematicID = planetaryInteractionRepository.getSchematicId(eveType.getTypeId());
-                   List<ItemPrice> itemPriceList = marketService.getItemMarketPrice(eveType.getTypeId(), DEFAULT_REGION_ID, SELL_ORDER_TYPE
-                   );
+
+                   // Get pre-fetched data from maps instead of individual queries
+                   Integer schematicID = schematicIdMap.get(eveType.getTypeId());
+                   Integer cycleTime = schematicID != null ? cycleTimeMap.get(schematicID) : null;
+
+                   List<ItemPrice> itemPriceList = marketService.getItemMarketPrice(eveType.getTypeId(), DEFAULT_REGION_ID, SELL_ORDER_TYPE);
+
                    List<PiDependency> piDependencies;
                    Integer type = validateType(eveType.getGroupId());
                    if (type == 1) {
-                       piDependencies = planetsMaterials.entrySet().stream().filter(list -> list.getValue().contains(eveType.getTypeName())).map(list ->
-                               PiDependency.builder().typeID(list.getKey()).build()
-                       ).toList();
+                       piDependencies = planetsMaterials.entrySet().stream()
+                               .filter(list -> list.getValue().contains(eveType.getTypeName()))
+                               .map(list -> PiDependency.builder().typeID(list.getKey()).build())
+                               .toList();
                    } else {
-                       piDependencies = planetaryInteractionRepository.getPiDependencies(schematicID);
+                       // Get pre-fetched dependencies from map
+                       piDependencies = schematicID != null ?
+                               dependenciesMap.getOrDefault(schematicID, new ArrayList<>()) :
+                               new ArrayList<>();
                    }
-                   Integer cycleTime = planetaryInteractionRepository.getCycleTime(schematicID);
+
                    return PiMat.builder()
                            .id(eveType.getTypeId())
                            .quantity(type > 1 ? piDependencies.stream().filter(d -> !d.getIsInput()).findFirst()
@@ -96,9 +116,11 @@ public class PiDataServiceImpl implements PiDataService {
                .sorted(Comparator.comparing(PiMat::getName))
                .sorted(Comparator.comparing(PiMat::getType))
                .toList());
+
        result.addAll(planetNames.entrySet().stream().map(list->
                PiMat.builder().id(list.getKey()).icon(String.format("/assets/%s.png", list.getValue().toLowerCase())).name(list.getValue()).type(validateType(0)).build()
        ).toList());
+
        return result;
     }
 

@@ -90,6 +90,7 @@ public class BlueprintServiceImpl implements BlueprintService {
     }
 
     @Override
+    @Cacheable(value = "blueprints", cacheManager = "staticDataCacheManager")
     public GetBlueprintsResult getEveBlueprints() {
         List<Blueprint> blueprints = blueprintQueryRepository.getAllBlueprints();
         LOGGER.info("Blueprints loaded - {}", !blueprints.isEmpty());
@@ -101,6 +102,7 @@ public class BlueprintServiceImpl implements BlueprintService {
     }
 
     @Override
+    @Cacheable(value = "systemNames", cacheManager = "staticDataCacheManager")
     public List<SystemName> getEveSystems() {
         List<SystemName> systems = universeQueryRepository.getAllSystems();
         LOGGER.info("Systems loaded - {}", !systems.isEmpty());
@@ -108,6 +110,7 @@ public class BlueprintServiceImpl implements BlueprintService {
     }
 
     @Override
+    @Cacheable(value = "regions", cacheManager = "staticDataCacheManager")
     public List<Region> getEveRegions() {
         List<Region> regions = universeQueryRepository.getAllRegions();
         LOGGER.info("Regions loaded - {}", !regions.isEmpty());
@@ -115,6 +118,7 @@ public class BlueprintServiceImpl implements BlueprintService {
     }
 
     @Override
+    @Cacheable(value = "stations", cacheManager = "staticDataCacheManager")
     public List<Station> getEveStations() {
         List<Station> stations = universeQueryRepository.getFeaturedStations().stream()
                 .sorted(Comparator.comparing(Station::getRegionName, Comparator.nullsLast(String::compareTo))).toList();
