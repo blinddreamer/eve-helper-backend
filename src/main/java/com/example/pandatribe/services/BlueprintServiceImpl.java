@@ -117,7 +117,7 @@ public class BlueprintServiceImpl implements BlueprintService {
     @Override
     public List<Station> getEveStations() {
         List<Station> stations = universeQueryRepository.getFeaturedStations().stream()
-                .sorted(Comparator.comparing(Station::getRegionName)).toList();
+                .sorted(Comparator.comparing(Station::getRegionName, Comparator.nullsLast(String::compareTo))).toList();
         LOGGER.info("Stations loaded - {}", !stations.isEmpty());
         return stations;
     }
