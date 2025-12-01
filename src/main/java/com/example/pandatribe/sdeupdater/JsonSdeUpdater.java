@@ -105,10 +105,8 @@ public class JsonSdeUpdater {
             log.info("SDE update completed successfully");
         } catch (Exception e) {
             log.error("Error during SDE update process", e);
-            if (eveInteractor != null) {
-                eveInteractor.sendNotification("eve", "SDE Update Failed",
-                    String.format("Error: %s", e.getMessage()), "high");
-            }
+            sendNotificationSafely("eve", "SDE Update Failed",
+                String.format("Error: %s", e.getMessage()), "high");
         }
     }
 
@@ -271,21 +269,17 @@ public class JsonSdeUpdater {
 
         if (result.success) {
             log.info("Flyway applied {} SDE migrations successfully", result.migrationsExecuted);
-            if (eveInteractor != null) {
-                eveInteractor.sendNotification("eve", "SDE Update Success",
-                    String.format("Applied %d migrations", result.migrationsExecuted),
-                    "default");
-            }
+            sendNotificationSafely("eve", "SDE Update Success",
+                String.format("Applied %d migrations", result.migrationsExecuted),
+                "default");
 
             // Clean up migration files after successful application
             cleanMigrationFiles();
         } else {
             log.error("Flyway migration failed");
-            if (eveInteractor != null) {
-                eveInteractor.sendNotification("eve", "SDE Update Failed",
-                    String.format("Migration failed: %s", result.getException()),
-                    "high");
-            }
+            sendNotificationSafely("eve", "SDE Update Failed",
+                String.format("Migration failed: %s", result.getException()),
+                "high");
         }
     }
 
@@ -399,5 +393,30 @@ public class JsonSdeUpdater {
     private void clearUpdateTrigger() throws IOException {
         Files.deleteIfExists(Paths.get("data/sde_update_trigger.txt"));
         log.debug("Cleared update trigger");
+    }
+
+    /**
+     * Sends a notification safely without interrupting the SDE update process.
+     * If notification fails (e.g., 403 Forbidden), logs the error but continues execution.
+     *
+     * @param topic Notification topic
+     * @param title Notification title
+     * @param message Notification message
+     * @param priority Notification priority
+     */
+    private void sendNotificationSafely(String topic, String title, String message, String priority) {
+        if (eveInteractor == null) {
+            log.debug("EveInteractor not available, skipping notification");
+            return;
+        }
+
+        try {
+            eveInteractor.sendNotification(topic, title, message, priority);
+            log.debug("Notification sent successfully: {}", title);
+        } catch (Exception e) {
+            // Log the error but don't throw - notification failure shouldn't stop SDE update
+            log.warn("Failed to send notification '{}': {} - {}", title, e.getClass().getSimpleName(), e.getMessage());
+            log.debug("Notification error details", e);
+        }
     }
 }

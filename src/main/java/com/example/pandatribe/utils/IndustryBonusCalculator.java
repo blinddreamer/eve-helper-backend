@@ -50,10 +50,15 @@ public class IndustryBonusCalculator {
      * Calculates the rig multiplier based on system security status.
      *
      * @param rigBonus The rig bonus object
-     * @param security System security status (-1.0 to 1.0)
+     * @param security System security status (-1.0 to 1.0), null defaults to high-sec (1.0)
      * @return Multiplier for the given security level
      */
     public Double calculateRigMultiplier(RigBonus rigBonus, Double security) {
+        // Default to high-sec if security is null
+        if (security == null) {
+            security = 1.0;
+        }
+
         if (security >= 0.5) {
             return rigBonus.getHighSecMultiplier();
         } else if (security > 0) {

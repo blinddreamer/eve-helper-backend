@@ -53,7 +53,7 @@ public class ScheduledJobsService {
         log.info("Removed " + appraisalsToRemove.size() + " appraisal data");
     }
 
-    @Scheduled(cron = RUN_EVERY_5_MINUTES, zone = "UTC")
+    @Scheduled(cron = RUN_DAILY_AT_2_30_AM, zone = "UTC")
     @Transactional
     public void scheduledSdeUpdate() {
         log.info("Starting scheduled EVE SDE update check (JSON format)...");
