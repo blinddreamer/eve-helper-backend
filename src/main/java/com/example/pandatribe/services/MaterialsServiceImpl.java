@@ -96,7 +96,7 @@ public class MaterialsServiceImpl implements MaterialService {
 
             // Fetch blueprint and volume info
             BlueprintActivity blueprintActivity = blueprintQueryRepository.getBlueprintInfoByProduct(eveType.getTypeId());
-            Integer volume = blueprintQueryRepository.getVolume(eveType.getTypeId());
+            Double volume = blueprintQueryRepository.getVolume(eveType.getTypeId());
 
             // Calculate material quantity with all bonuses
             Integer matQuantity = materialQuantityCalculator.calculateMaterialQuantity(

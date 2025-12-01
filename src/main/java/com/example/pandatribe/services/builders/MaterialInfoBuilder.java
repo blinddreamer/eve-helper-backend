@@ -49,7 +49,7 @@ public class MaterialInfoBuilder {
             EveType eveType,
             Integer quantity,
             Integer baseQuantity,
-            Integer volume,
+            Double volume,
             BlueprintActivity blueprintActivity,
             List<ItemPrice> marketItemPriceData,
             List<MarketPriceData> marketPriceData,

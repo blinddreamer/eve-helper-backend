@@ -45,7 +45,7 @@ public class AppraisalServiceImpl implements AppraisalService {
                 LOGGER.error("Eve ITEM with name {} was not found",appraisal.getName());
                 return null;
             }
-         Integer volume = blueprintQueryRepository.getVolume(eveType.getTypeId());
+         Double volume = blueprintQueryRepository.getVolume(eveType.getTypeId());
                  Long locationId = Optional.ofNullable(appraisalRequest.getRegionId()).map(s-> s.split("_")[1]).map(Long::parseLong).orElse(DEFAULT_LOCATION_ID);
                  Integer regionId = Optional.ofNullable(appraisalRequest.getRegionId()).map(s-> s.split("_")[0]).map(Integer::parseInt).orElse(REGION_ID);
          List<ItemPrice> itemPriceList = marketService

@@ -110,13 +110,13 @@ public class BlueprintQueryRepository {
      * @return Volume in cubic meters, or null if not found
      */
     @Transactional(readOnly = true)
-    public Integer getVolume(Integer typeId) {
+    public Double getVolume(Integer typeId) {
         String nativeQuery = "SELECT volume FROM invVolumes WHERE typeID = :typeId";
         List<Object> result = entityManager.createNativeQuery(nativeQuery)
                 .setParameter("typeId", typeId)
                 .getResultList();
 
-        return result.isEmpty() ? null : (Integer) result.get(0);
+        return result.isEmpty() ? null : (Double) result.get(0);
     }
 
     /**

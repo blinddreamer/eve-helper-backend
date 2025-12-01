@@ -198,7 +198,7 @@ public class BlueprintServiceImpl implements BlueprintService {
             if (Objects.isNull(systemInfo)) {
                 systemInfo = universeQueryRepository.getSystemInfo(eveDataConfig.getDefaultSystem());
             }
-            Integer volume = blueprintQueryRepository.getVolume(eveType.getTypeId());
+            Double volume = blueprintQueryRepository.getVolume(eveType.getTypeId());
             Integer matBlueprintId = blueprintActivity.getBlueprintId();
             Integer craftCount = (int) Math.ceil((double) runs / blueprintActivity.getCraftQuantity());
             Double craftQuantity = Optional.of(blueprintActivity).map(b -> Double.parseDouble(b.getCraftQuantity().toString())).orElse(1.0);
