@@ -77,4 +77,18 @@ public class CaffeineCacheConfig {
             .expireAfterWrite(1, TimeUnit.HOURS));
         return cacheManager;
     }
+
+    /**
+     * Cache manager for market type index (daily).
+     * Holds the full list of tradeable item names for the market browser search.
+     * Refreshed once per day via scheduled eviction.
+     */
+    @Bean("marketTypesCacheManager")
+    public CacheManager marketTypesCacheManager() {
+        CaffeineCacheManager cacheManager = new CaffeineCacheManager("cacheMarketTypes");
+        cacheManager.setCaffeine(Caffeine.newBuilder()
+            .maximumSize(10)
+            .expireAfterWrite(24, TimeUnit.HOURS));
+        return cacheManager;
+    }
 }

@@ -49,9 +49,15 @@ public class CacheConfig {
         evictCacheCostIndexes();
     }
 
-    @Scheduled(cron = "0 0 4 * * *") // every day at 4
+    @CacheEvict(cacheNames = "cacheMarketTypes", cacheManager = "marketTypesCacheManager", allEntries = true)
+    public void evictCacheMarketTypes() {
+        LOGGER.info("Cache cacheMarketTypes was cleared");
+    }
+
+    @Scheduled(cron = "0 0 4 * * *") // every day at 4am
     public void triggerEvictCacheDaily(){
         evictCacheMarketPrices();
+        evictCacheMarketTypes();
     }
 
 }

@@ -6,6 +6,8 @@ import com.example.pandatribe.models.characters.CharacterLoginInfo;
 import com.example.pandatribe.models.industry.SystemCostIndexes;
 import com.example.pandatribe.models.market.ItemPrice;
 import com.example.pandatribe.models.market.MarketPriceData;
+import com.example.pandatribe.models.market.EsiMarketHistory;
+import com.example.pandatribe.models.universe.UniverseNameEntry;
 import feign.*;
 
 import java.math.BigDecimal;
@@ -45,4 +47,16 @@ public interface EveApiList {
 
     @RequestLine("GET /latest/characters/{characterId}/wallet")
     BigDecimal getWalletBalance(@Param("characterId") Integer characterId);
+
+    @RequestLine("GET /latest/markets/{regionId}/types/?datasource=tranquility&page={page}")
+    Response getMarketTypeIds(@Param("regionId") Integer regionId, @Param("page") Integer page);
+
+    @RequestLine("POST /latest/universe/names/?datasource=tranquility")
+    List<UniverseNameEntry> resolveUniverseNames(List<Integer> ids);
+
+    @RequestLine("GET /latest/markets/{regionId}/orders/?datasource=tranquility&order_type=all&type_id={typeId}&page={page}")
+    Response getMarketOrdersPage(@Param("regionId") Integer regionId, @Param("typeId") Integer typeId, @Param("page") Integer page);
+
+    @RequestLine("GET /latest/markets/{regionId}/history/?datasource=tranquility&type_id={typeId}")
+    List<EsiMarketHistory> getMarketHistory(@Param("regionId") Integer regionId, @Param("typeId") Integer typeId);
 }

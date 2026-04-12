@@ -9,22 +9,30 @@ import com.example.pandatribe.models.authentication.TokenResponse;
 import com.example.pandatribe.models.characters.CharPortrait;
 import com.example.pandatribe.models.characters.CharacterLoginInfo;
 import com.example.pandatribe.models.industry.SystemCostIndexes;
+import com.example.pandatribe.models.market.EsiMarketHistory;
 import com.example.pandatribe.models.market.ItemPrice;
 import com.example.pandatribe.models.market.MarketPriceData;
+import com.example.pandatribe.models.market.MarketType;
+import com.example.pandatribe.models.universe.UniverseNameEntry;
 import com.example.pandatribe.utils.AuthTokenUtil;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import feign.Response;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.math.BigDecimal;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
 public class EveInteractorImpl implements EveInteractor {
+    private static final Logger LOGGER = LoggerFactory.getLogger(EveInteractorImpl.class);
     public static final String BEARER_PREFIX = "Bearer ";
     public static final String BASIC_AUTH_PREFIX = "Basic ";
     @Value("${EVE_CLIENT_ID}")
@@ -33,6 +41,8 @@ public class EveInteractorImpl implements EveInteractor {
     private String clientSecret;
     private final FeignConfig feign;
     private final AuthTokenUtil authTokenUtil;
+    private final ObjectMapper objectMapper;
+    private static final Integer JITA_REGION_ID = 10000002;
     public static final String API_ADDRESS = "https://esi.evetech.net";
     @Value("${NTFY_SELECTED_ADDRESS}")
     private String ntfyAddress;
@@ -87,6 +97,88 @@ public class EveInteractorImpl implements EveInteractor {
     public BigDecimal getWalletBalance(Integer characterId, String accessToken) {
         return feign.getRestClientWithAuthentication(EveApiList.class, API_ADDRESS, accessToken, BEARER_PREFIX)
                 .getWalletBalance(characterId);
+    }
+
+    @Override
+    public List<MarketType> getMarketTypes() {
+        EveApiList client = feign.getRestClient(EveApiList.class, API_ADDRESS);
+
+        // Fetch page 1 and read X-Pages header
+        Response firstPage = client.getMarketTypeIds(JITA_REGION_ID, 1);
+        int totalPages = Optional.ofNullable(firstPage.headers().get("X-Pages"))
+                .flatMap(h -> h.stream().findFirst())
+                .map(Integer::parseInt)
+                .orElse(1);
+
+        List<Integer> allIds = new ArrayList<>(parseTypeIds(firstPage));
+
+        // Fetch remaining pages sequentially
+        for (int page = 2; page <= totalPages; page++) {
+            allIds.addAll(parseTypeIds(client.getMarketTypeIds(JITA_REGION_ID, page)));
+        }
+
+        // Deduplicate
+        List<Integer> uniqueIds = new ArrayList<>(new HashSet<>(allIds));
+
+        // Resolve names in batches of 1000
+        List<MarketType> result = new ArrayList<>();
+        final int BATCH = 1000;
+        for (int i = 0; i < uniqueIds.size(); i += BATCH) {
+            List<Integer> batch = uniqueIds.subList(i, Math.min(i + BATCH, uniqueIds.size()));
+            client.resolveUniverseNames(batch).stream()
+                    .filter(n -> "inventory_type".equals(n.getCategory()))
+                    .map(n -> new MarketType(n.getId(), n.getName()))
+                    .forEach(result::add);
+        }
+
+        result.sort(Comparator.comparing(MarketType::getName));
+        LOGGER.info("Market type index built: {} tradeable types", result.size());
+        return result;
+    }
+
+    private List<Integer> parseTypeIds(Response response) {
+        try {
+            return objectMapper.readValue(
+                    response.body().asInputStream(),
+                    new TypeReference<List<Integer>>() {}
+            );
+        } catch (Exception e) {
+            LOGGER.error("Failed to parse market type IDs from ESI response", e);
+            return Collections.emptyList();
+        }
+    }
+
+    @Override
+    public List<ItemPrice> getMarketOrders(Integer typeId, Integer regionId) {
+        EveApiList client = feign.getRestClient(EveApiList.class, API_ADDRESS);
+        Response firstPage = client.getMarketOrdersPage(regionId, typeId, 1);
+        int totalPages = Optional.ofNullable(firstPage.headers().get("X-Pages"))
+                .flatMap(h -> h.stream().findFirst())
+                .map(Integer::parseInt)
+                .orElse(1);
+        List<ItemPrice> allOrders = new ArrayList<>(parseItemPrices(firstPage));
+        for (int page = 2; page <= totalPages; page++) {
+            allOrders.addAll(parseItemPrices(client.getMarketOrdersPage(regionId, typeId, page)));
+        }
+        LOGGER.info("Fetched {} orders from ESI for typeId={} regionId={}", allOrders.size(), typeId, regionId);
+        return allOrders;
+    }
+
+    private List<ItemPrice> parseItemPrices(Response response) {
+        try {
+            return objectMapper.readValue(
+                    response.body().asInputStream(),
+                    new TypeReference<List<ItemPrice>>() {}
+            );
+        } catch (Exception e) {
+            LOGGER.error("Failed to parse market orders from ESI response", e);
+            return Collections.emptyList();
+        }
+    }
+
+    @Override
+    public List<EsiMarketHistory> getMarketHistory(Integer regionId, Integer typeId) {
+        return feign.getRestClient(EveApiList.class, API_ADDRESS).getMarketHistory(regionId, typeId);
     }
 
     @Override
