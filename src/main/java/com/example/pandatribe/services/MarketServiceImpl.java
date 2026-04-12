@@ -17,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -24,6 +25,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 @Service
@@ -34,6 +37,9 @@ public class MarketServiceImpl implements MarketService {
     private final EveInteractor eveInteractor;
     private final MarketOrderRepository marketOrderRepository;
     private final MarketHistoryRepository marketHistoryRepository;
+    private final TransactionTemplate transactionTemplate;
+    // Not a Spring bean — excluded from @AllArgsConstructor via initializer
+    private final ConcurrentHashMap<String, ReentrantLock> orderRefreshLocks = new ConcurrentHashMap<>();  //NOSONAR
     public static final String DATA_SOURCE = "tranquility";
 
     @Override
@@ -88,43 +94,59 @@ public class MarketServiceImpl implements MarketService {
     }
 
     @Override
-    @Transactional
     public List<MarketOrderEntity> getMarketOrders(Integer typeId, Integer regionId) {
-        Optional<MarketOrderEntity> latest = marketOrderRepository
-                .findTopByTypeIdAndRegionIdOrderByFetchedAtDesc(typeId, regionId);
-
-        if (latest.isPresent() && latest.get().getFetchedAt().isAfter(LocalDateTime.now().minusMinutes(ORDER_CACHE_MINUTES))) {
-            LOGGER.info("Returning DB-cached orders for typeId={} regionId={}", typeId, regionId);
+        // Optimistic read — no lock needed if cache is fresh
+        if (isFresh(marketOrderRepository.findTopByTypeIdAndRegionIdOrderByFetchedAtDesc(typeId, regionId))) {
             return marketOrderRepository.findByTypeIdAndRegionId(typeId, regionId);
         }
 
-        LOGGER.info("Fetching orders from ESI for typeId={} regionId={}", typeId, regionId);
-        List<ItemPrice> esiOrders = eveInteractor.getMarketOrders(typeId, regionId);
+        // Acquire per-key lock so only one thread refreshes a given typeId+regionId at a time
+        ReentrantLock lock = orderRefreshLocks.computeIfAbsent(typeId + "_" + regionId, k -> new ReentrantLock());
+        lock.lock();
+        try {
+            // Double-check after acquiring lock — another thread may have just refreshed
+            if (isFresh(marketOrderRepository.findTopByTypeIdAndRegionIdOrderByFetchedAtDesc(typeId, regionId))) {
+                LOGGER.info("Returning DB-cached orders for typeId={} regionId={}", typeId, regionId);
+                return marketOrderRepository.findByTypeIdAndRegionId(typeId, regionId);
+            }
 
-        marketOrderRepository.deleteByTypeIdAndRegionId(typeId, regionId);
+            LOGGER.info("Fetching orders from ESI for typeId={} regionId={}", typeId, regionId);
+            List<ItemPrice> esiOrders = eveInteractor.getMarketOrders(typeId, regionId);
+            LocalDateTime now = LocalDateTime.now();
 
-        LocalDateTime now = LocalDateTime.now();
-        List<MarketOrderEntity> entities = esiOrders.stream()
-                .map(ip -> MarketOrderEntity.builder()
-                        .orderId(Long.parseLong(ip.getOrderId()))
-                        .typeId(ip.getTypeId())
-                        .regionId(regionId)
-                        .isBuyOrder(ip.getIsBuyOrder())
-                        .price(ip.getPrice())
-                        .volumeRemain(ip.getVolumeRemain())
-                        .volumeTotal(ip.getVolumeTotal())
-                        .minVolume(ip.getMinVolume())
-                        .issued(ip.getIssued())
-                        .duration(ip.getDuration())
-                        .locationId(ip.getLocationId())
-                        .range(ip.getRange())
-                        .fetchedAt(now)
-                        .build())
-                .collect(Collectors.toList());
+            List<MarketOrderEntity> entities = esiOrders.stream()
+                    .map(ip -> MarketOrderEntity.builder()
+                            .orderId(Long.parseLong(ip.getOrderId()))
+                            .typeId(ip.getTypeId())
+                            .regionId(regionId)
+                            .isBuyOrder(ip.getIsBuyOrder())
+                            .price(ip.getPrice())
+                            .volumeRemain(ip.getVolumeRemain())
+                            .volumeTotal(ip.getVolumeTotal())
+                            .minVolume(ip.getMinVolume())
+                            .issued(ip.getIssued())
+                            .duration(ip.getDuration())
+                            .locationId(ip.getLocationId())
+                            .range(ip.getRange())
+                            .fetchedAt(now)
+                            .build())
+                    .collect(Collectors.toList());
 
-        marketOrderRepository.saveAll(entities);
-        LOGGER.info("Cached {} orders for typeId={} regionId={}", entities.size(), typeId, regionId);
-        return entities;
+            // Run delete+insert in a single transaction while the lock is held
+            return transactionTemplate.execute(status -> {
+                marketOrderRepository.deleteByTypeIdAndRegionId(typeId, regionId);
+                marketOrderRepository.saveAll(entities);
+                LOGGER.info("Cached {} orders for typeId={} regionId={}", entities.size(), typeId, regionId);
+                return entities;
+            });
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private boolean isFresh(Optional<MarketOrderEntity> latest) {
+        return latest.isPresent()
+                && latest.get().getFetchedAt().isAfter(LocalDateTime.now().minusMinutes(ORDER_CACHE_MINUTES));
     }
 
     @Override
@@ -135,7 +157,6 @@ public class MarketServiceImpl implements MarketService {
 
         if (!dbHistory.isEmpty()) {
             LocalDate latestDate = dbHistory.get(dbHistory.size() - 1).getId().getDate();
-            // ESI typically has yesterday as the newest entry — only re-fetch if we're behind
             if (!latestDate.isBefore(LocalDate.now().minusDays(1))) {
                 LOGGER.info("Returning DB history for typeId={} regionId={} ({} entries)", typeId, regionId, dbHistory.size());
                 return dbHistory;
@@ -143,7 +164,6 @@ public class MarketServiceImpl implements MarketService {
             return appendNewHistory(typeId, regionId, dbHistory, latestDate);
         }
 
-        // No history in DB — backfill from ESI (~13 months available)
         LOGGER.info("Backfilling history from ESI for typeId={} regionId={}", typeId, regionId);
         List<EsiMarketHistory> esiHistory = eveInteractor.getMarketHistory(regionId, typeId);
 
