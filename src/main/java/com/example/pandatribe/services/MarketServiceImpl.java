@@ -77,6 +77,24 @@ public class MarketServiceImpl implements MarketService {
     }
 
     @Override
+    public BigDecimal getItemPriceByOrderTypeFromOrders(String orderType, List<MarketOrderEntity> orders, Long locationId) {
+        if (orderType.equals("buy")) {
+            return orders.stream()
+                    .filter(o -> Objects.equals(o.getLocationId(), locationId))
+                    .filter(o -> Boolean.TRUE.equals(o.getIsBuyOrder()))
+                    .map(MarketOrderEntity::getPrice).max(BigDecimal::compareTo)
+                    .orElse(BigDecimal.ZERO);
+        }
+        return orders.stream()
+                .filter(o -> Objects.equals(o.getLocationId(), locationId))
+                .filter(o -> Boolean.FALSE.equals(o.getIsBuyOrder()))
+                .map(MarketOrderEntity::getPrice)
+                .sorted()
+                .findFirst()
+                .orElse(BigDecimal.ZERO);
+    }
+
+    @Override
     @Cacheable("cacheMarketPrices")
     public List<MarketPriceData> getMarketPriceData() {
         List<MarketPriceData> marketPriceDataList = eveInteractor.getMarketPrices();

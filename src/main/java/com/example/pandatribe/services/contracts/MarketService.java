@@ -22,5 +22,7 @@ public interface MarketService {
 
     List<MarketOrderEntity> getMarketOrders(Integer typeId, Integer regionId);
 
+    BigDecimal getItemPriceByOrderTypeFromOrders(String orderType, List<MarketOrderEntity> orders, Long locationId);
+
     List<MarketHistoryEntity> getMarketHistory(Integer typeId, Integer regionId);
 }
