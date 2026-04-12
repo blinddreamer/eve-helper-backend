@@ -127,6 +127,7 @@ public class EveInteractorImpl implements EveInteractor {
             List<Integer> batch = uniqueIds.subList(i, Math.min(i + BATCH, uniqueIds.size()));
             client.resolveUniverseNames(batch).stream()
                     .filter(n -> "inventory_type".equals(n.getCategory()))
+                    .filter(n -> !isJunkMarketItem(n.getName()))
                     .map(n -> new MarketType(n.getId(), n.getName()))
                     .forEach(result::add);
         }
@@ -134,6 +135,25 @@ public class EveInteractorImpl implements EveInteractor {
         result.sort(Comparator.comparing(MarketType::getName));
         LOGGER.info("Market type index built: {} tradeable types", result.size());
         return result;
+    }
+
+    private static boolean isJunkMarketItem(String name) {
+        if (name == null) return false;
+        // T2/T3 blueprints — require invention, not directly purchasable
+        if (name.endsWith(" II Blueprint") || name.endsWith(" III Blueprint")) return true;
+        // Debug / test / QA items
+        if (name.startsWith("DO NOT TRANSLATE")) return true;
+        if (name.startsWith("QA ")) return true;
+        if (name.startsWith("Test Server")) return true;
+        // Event/promotional items
+        if (name.startsWith("ASI 2018")) return true;
+        // Expert Systems (limited-time skill injectors, not regular market)
+        if (name.contains("Expert System")) return true;
+        // Ship Emblems (cosmetic only)
+        if (name.contains("Ship Emblem")) return true;
+        // Planetary industry (non-tradeable PI infrastructure)
+        if (name.contains("Planetary Industry")) return true;
+        return false;
     }
 
     private List<Integer> parseTypeIds(Response response) {

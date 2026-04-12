@@ -25,6 +25,25 @@ public class EveImageService {
     }
 
     /**
+     * Generates an icon URL for an EVE type, choosing the correct endpoint based on
+     * whether the type is a blueprint original (/bp) or blueprint copy (/bpc).
+     *
+     * @param typeId   The EVE type ID
+     * @param typeName The EVE type name (used to detect blueprints)
+     * @param size     The desired image size (32, 64, 128, 256, 512)
+     * @return Full URL to the type's icon image
+     */
+    public String generateIconLink(Integer typeId, String typeName, Integer size) {
+        if (typeName != null && typeName.endsWith(" Blueprint Copy")) {
+            return String.format("%s/types/%d/bpc?size=%d", baseImageUrl, typeId, size);
+        }
+        if (typeName != null && typeName.endsWith(" Blueprint")) {
+            return String.format("%s/types/%d/bp?size=%d", baseImageUrl, typeId, size);
+        }
+        return String.format("%s/types/%d/icon?size=%d", baseImageUrl, typeId, size);
+    }
+
+    /**
      * Generates a 3D render URL for an EVE type.
      * Typically used for ships and structures.
      *

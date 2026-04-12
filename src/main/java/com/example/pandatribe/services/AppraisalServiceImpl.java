@@ -53,7 +53,7 @@ public class AppraisalServiceImpl implements AppraisalService {
          BigDecimal buyOrderPrice = marketService.getItemPriceByOrderTypeFromOrders("buy", orders, locationId);
          BigDecimal sellOrderPrice = marketService.getItemPriceByOrderTypeFromOrders("sell", orders, locationId);
             return AppraisalResultEntity.builder()
-                    .icon(eveImageService.generateIconLink(eveType.getTypeId(),32))
+                    .icon(eveImageService.generateIconLink(eveType.getTypeId(), eveType.getTypeName(), 32))
                     .quantity(appraisal.getQuantity())
                     .volume(Objects.nonNull(volume) ? volume : eveType.getVolume())
                     .item(eveType.getTypeName())
