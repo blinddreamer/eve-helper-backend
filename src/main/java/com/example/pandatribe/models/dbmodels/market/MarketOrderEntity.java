@@ -62,7 +62,7 @@ public class MarketOrderEntity {
     @JsonProperty("location_id")
     private Long locationId;
 
-    @Column(name = "range")
+    @Column(name = "`range`")
     @JsonProperty("range")
     private String range;
 
