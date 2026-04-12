@@ -17,7 +17,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -37,7 +36,7 @@ public class MarketServiceImpl implements MarketService {
     private final EveInteractor eveInteractor;
     private final MarketOrderRepository marketOrderRepository;
     private final MarketHistoryRepository marketHistoryRepository;
-    private final TransactionTemplate transactionTemplate;
+    private final MarketOrderRefresher marketOrderRefresher;
     // Not a Spring bean — excluded from @AllArgsConstructor via initializer
     private final ConcurrentHashMap<String, ReentrantLock> orderRefreshLocks = new ConcurrentHashMap<>();  //NOSONAR
     public static final String DATA_SOURCE = "tranquility";
@@ -132,13 +131,10 @@ public class MarketServiceImpl implements MarketService {
                             .build())
                     .collect(Collectors.toList());
 
-            // Run delete+insert in a single transaction while the lock is held
-            return transactionTemplate.execute(status -> {
-                marketOrderRepository.deleteByTypeIdAndRegionId(typeId, regionId);
-                marketOrderRepository.saveAll(entities);
-                LOGGER.info("Cached {} orders for typeId={} regionId={}", entities.size(), typeId, regionId);
-                return entities;
-            });
+            // Run delete+insert with READ_COMMITTED isolation to avoid InnoDB gap-lock deadlocks
+            List<MarketOrderEntity> saved = marketOrderRefresher.refresh(typeId, regionId, entities);
+            LOGGER.info("Cached {} orders for typeId={} regionId={}", saved.size(), typeId, regionId);
+            return saved;
         } finally {
             lock.unlock();
         }
