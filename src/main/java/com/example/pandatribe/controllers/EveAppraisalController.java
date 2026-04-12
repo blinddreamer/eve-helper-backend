@@ -3,6 +3,8 @@ package com.example.pandatribe.controllers;
 import com.example.pandatribe.logging.JsonLogger;
 import com.example.pandatribe.models.dbmodels.appraisal.AppraisalData;
 import com.example.pandatribe.models.requests.AppraisalRequest;
+import com.example.pandatribe.models.results.CompressResult;
+import com.example.pandatribe.models.results.ReprocessResult;
 import com.example.pandatribe.services.contracts.AppraisalService;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
@@ -33,12 +35,25 @@ public class  EveAppraisalController {
 
     @GetMapping("/{id}")
     public ResponseEntity<AppraisalData> getAppraisalPrices(@PathVariable String id){
-
-        LOGGER.info("REQUEST for appraisal with id {} received: ",id);
+        LOGGER.info("REQUEST for appraisal with id {} received: ", id);
         AppraisalData appraisalResult = appraisalService.getAppraisalResult(id);
-        LOGGER.info("RESPONSE for appraisal with id {} ready: ",id);
+        LOGGER.info("RESPONSE for appraisal with id {} ready: ", id);
         jsonLogger.println(appraisalResult);
         return ResponseEntity.ok(appraisalResult);
+    }
+
+    @GetMapping("/{id}/reprocess")
+    public ResponseEntity<ReprocessResult> getReprocessResult(
+            @PathVariable String id,
+            @RequestParam(defaultValue = "0.875") Double efficiency) {
+        LOGGER.info("REQUEST for reprocess on appraisal {} efficiency={}", id, efficiency);
+        return ResponseEntity.ok(appraisalService.getReprocessResult(id, efficiency));
+    }
+
+    @GetMapping("/{id}/compress")
+    public ResponseEntity<CompressResult> getCompressResult(@PathVariable String id) {
+        LOGGER.info("REQUEST for compress on appraisal {}", id);
+        return ResponseEntity.ok(appraisalService.getCompressResult(id));
     }
 
 }
