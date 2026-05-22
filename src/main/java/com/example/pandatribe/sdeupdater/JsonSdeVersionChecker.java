@@ -10,15 +10,19 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Service to check for EVE SDE updates from the official EVE Online developers site.
- * Monitors the JSON format SDE releases by querying the ESI /status/ endpoint for server_version.
+ * Monitors the JSON format SDE releases via the latest.jsonl endpoint which reflects
+ * the build number of the currently published SDE ZIP.
  */
 @Slf4j
 @Service
@@ -64,51 +68,56 @@ public class JsonSdeVersionChecker {
     }
 
     /**
-     * Gets the current remote SDE version by checking ESI /status/ endpoint
-     * which provides the server_version number used in SDE filenames.
+     * Discovers the current published SDE version from the official CCP latest.jsonl endpoint.
+     * This endpoint returns a JSONL record containing the key "sde" with the current build number.
      *
-     * @return server version string (e.g., "3118350")
+     * Using this endpoint instead of the ESI server_version because:
+     * - ESI server_version changes with every patch/hotfix
+     * - CCP only publishes a new SDE ZIP with major releases
+     * - This endpoint always reflects what is actually downloadable
+     *
+     * @return SDE build number string (e.g. "3350000"), or null if the endpoint is unreachable
      */
     private String getCurrentRemoteVersion() {
         try {
-            // Query ESI status endpoint to get current server version
-            URL url = new URL("https://esi.evetech.net/latest/status/");
+            URL url = new URL("https://developers.eveonline.com/static-data/tranquility/latest.jsonl");
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
             connection.setConnectTimeout(30000);
             connection.setReadTimeout(30000);
+            connection.setRequestProperty("User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+            connection.setRequestProperty("Accept", "application/json, application/x-ndjson, */*");
 
-            if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
-                try (InputStream is = connection.getInputStream()) {
-                    // Read JSON response
-                    StringBuilder response = new StringBuilder();
-                    byte[] buffer = new byte[1024];
-                    int bytesRead;
-                    while ((bytesRead = is.read(buffer)) != -1) {
-                        response.append(new String(buffer, 0, bytesRead));
-                    }
-
-                    // Parse server_version from JSON
-                    // Example: {"players":23125,"server_version":"3118350","start_time":"..."}
-                    String json = response.toString();
-                    String versionKey = "\"server_version\":\"";
-                    int startIndex = json.indexOf(versionKey);
-                    if (startIndex != -1) {
-                        startIndex += versionKey.length();
-                        int endIndex = json.indexOf("\"", startIndex);
-                        if (endIndex != -1) {
-                            String serverVersion = json.substring(startIndex, endIndex);
-                            log.debug("SDE server_version from ESI: {}", serverVersion);
-                            return serverVersion;
-                        }
-                    }
+            int responseCode = connection.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                String body = readStream(connection.getInputStream());
+                // Record format: {"_key":"sde","buildNumber":3351823,"releaseDate":"..."}
+                Matcher matcher = Pattern.compile("\"buildNumber\"\\s*:\\s*(\\d+)").matcher(body);
+                if (matcher.find()) {
+                    String version = matcher.group(1);
+                    log.debug("Latest published SDE version from latest.jsonl: {}", version);
+                    return version;
                 }
+                log.warn("Could not find 'sde' key in latest.jsonl response: {}", body);
+            } else {
+                log.warn("latest.jsonl endpoint returned HTTP {} — cannot determine SDE version", responseCode);
             }
             connection.disconnect();
         } catch (IOException e) {
-            log.warn("Failed to check SDE version from ESI: {}", e.getMessage());
+            log.warn("Failed to fetch SDE version from latest.jsonl: {}", e.getMessage());
         }
         return null;
+    }
+
+    private String readStream(InputStream is) throws IOException {
+        StringBuilder sb = new StringBuilder();
+        byte[] buffer = new byte[4096];
+        int bytesRead;
+        while ((bytesRead = is.read(buffer)) != -1) {
+            sb.append(new String(buffer, 0, bytesRead, StandardCharsets.UTF_8));
+        }
+        return sb.toString();
     }
 
     /**

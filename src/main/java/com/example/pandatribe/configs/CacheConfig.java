@@ -33,7 +33,7 @@ public class CacheConfig {
      * Manual cache eviction methods for static data.
      * These can be called manually when needed (e.g., after SDE update).
      */
-    @CacheEvict(cacheNames = {"blueprints", "regions", "stations", "systemNames"}, allEntries = true)
+    @CacheEvict(cacheNames = {"blueprints", "regions", "stations", "systemNames"}, allEntries = true, cacheManager = "staticDataCacheManager")
     public void evictAllStaticDataCaches(){
         LOGGER.info("All static data caches (blueprints, regions, stations, systemNames) were cleared");
     }
