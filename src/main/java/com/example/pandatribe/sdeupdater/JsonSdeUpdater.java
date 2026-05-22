@@ -136,6 +136,10 @@ public class JsonSdeUpdater {
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setConnectTimeout(60000);
         connection.setReadTimeout(300000); // 5 minutes for large file
+        connection.setRequestProperty("User-Agent",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+        connection.setRequestProperty("Referer", "https://developers.eveonline.com/resource/resources");
+        connection.setRequestProperty("Accept", "application/zip, application/octet-stream, */*");
 
         try (InputStream in = connection.getInputStream();
              OutputStream out = Files.newOutputStream(targetFile,
