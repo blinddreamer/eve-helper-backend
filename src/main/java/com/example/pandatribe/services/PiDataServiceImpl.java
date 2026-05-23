@@ -84,7 +84,9 @@ public class PiDataServiceImpl implements PiDataService {
                    Integer schematicID = schematicIdMap.get(eveType.getTypeId());
                    Integer cycleTime = schematicID != null ? cycleTimeMap.get(schematicID) : null;
 
-                   List<MarketOrderEntity> orders = marketService.getMarketOrders(eveType.getTypeId(), DEFAULT_REGION_ID);
+                   // Read directly from DB — the PI warmup scheduler keeps this fresh every 15 min.
+                   // Using getMarketOrders() here caused lock contention with the scheduler during ESI refresh.
+                   List<MarketOrderEntity> orders = marketService.getMarketOrdersFromDb(eveType.getTypeId(), DEFAULT_REGION_ID);
 
                    List<PiDependency> piDependencies;
                    Integer type = validateType(eveType.getGroupId());
