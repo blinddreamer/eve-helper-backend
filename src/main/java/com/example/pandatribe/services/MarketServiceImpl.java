@@ -111,6 +111,11 @@ public class MarketServiceImpl implements MarketService {
     }
 
     @Override
+    public List<MarketOrderEntity> getMarketOrdersFromDb(Integer typeId, Integer regionId) {
+        return marketOrderRepository.findByTypeIdAndRegionId(typeId, regionId);
+    }
+
+    @Override
     public List<MarketOrderEntity> getMarketOrders(Integer typeId, Integer regionId) {
         // Optimistic read — no lock needed if cache is fresh
         if (isFresh(marketOrderRepository.findTopByTypeIdAndRegionIdOrderByFetchedAtDesc(typeId, regionId))) {
