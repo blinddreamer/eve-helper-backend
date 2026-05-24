@@ -169,6 +169,8 @@ public class MarketServiceImpl implements MarketService {
             return saved;
         } finally {
             lock.unlock();
+            // Remove lock entry if no other thread is waiting — prevents unbounded map growth
+            orderRefreshLocks.remove(typeId + "_" + regionId, lock);
         }
     }
 
