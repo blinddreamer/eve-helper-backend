@@ -63,12 +63,14 @@ public class BlueprintPriceCalculator {
                 ).add(existingMat.getIndustryCosts());
             } else {
                 // Use market price
-                return material.getBuyPrice().multiply(BigDecimal.valueOf(material.getQuantity()));
+                BigDecimal unitPrice = Boolean.TRUE.equals(useBuyPrice) ? material.getBuyPrice() : material.getSellPrice();
+                return unitPrice.multiply(BigDecimal.valueOf(material.getQuantity()));
             }
         } else {
             // Material not in craft list, calculate quantity needed
             Integer quantity = calculateQuantity(selectedForCraftList, material.getName());
-            return material.getBuyPrice().multiply(BigDecimal.valueOf(quantity));
+            BigDecimal unitPrice = Boolean.TRUE.equals(useBuyPrice) ? material.getBuyPrice() : material.getSellPrice();
+            return unitPrice.multiply(BigDecimal.valueOf(quantity));
         }
     }
 
@@ -101,10 +103,12 @@ public class BlueprintPriceCalculator {
                                     useBuyPrice
                             ).add(existingMat.getIndustryCosts());
                         } else {
-                            return mat.getBuyPrice().multiply(BigDecimal.valueOf(mat.getQuantity()));
+                            BigDecimal unitPrice = Boolean.TRUE.equals(useBuyPrice) ? mat.getBuyPrice() : mat.getSellPrice();
+                            return unitPrice.multiply(BigDecimal.valueOf(mat.getQuantity()));
                         }
                     } else {
-                        return mat.getBuyPrice().multiply(BigDecimal.valueOf(mat.getQuantity()));
+                        BigDecimal unitPrice = Boolean.TRUE.equals(useBuyPrice) ? mat.getBuyPrice() : mat.getSellPrice();
+                        return unitPrice.multiply(BigDecimal.valueOf(mat.getQuantity()));
                     }
                 })
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
