@@ -3,7 +3,7 @@ package com.example.pandatribe.services;
 import com.example.pandatribe.models.industry.blueprints.EveType;
 import com.example.pandatribe.models.industry.blueprints.PiDependency;
 import com.example.pandatribe.models.industry.blueprints.PiMat;
-import com.example.pandatribe.models.market.ItemPrice;
+import com.example.pandatribe.models.dbmodels.market.MarketOrderEntity;
 import com.example.pandatribe.repositories.PlanetaryInteractionRepository;
 import com.example.pandatribe.repositories.interfaces.EveTypesRepository;
 import com.example.pandatribe.services.contracts.MarketService;
@@ -84,7 +84,9 @@ public class PiDataServiceImpl implements PiDataService {
                    Integer schematicID = schematicIdMap.get(eveType.getTypeId());
                    Integer cycleTime = schematicID != null ? cycleTimeMap.get(schematicID) : null;
 
-                   List<ItemPrice> itemPriceList = marketService.getItemMarketPrice(eveType.getTypeId(), DEFAULT_REGION_ID, SELL_ORDER_TYPE);
+                   // Read directly from DB — the PI warmup scheduler keeps this fresh every 15 min.
+                   // Using getMarketOrders() here caused lock contention with the scheduler during ESI refresh.
+                   List<MarketOrderEntity> orders = marketService.getMarketOrdersFromDb(eveType.getTypeId(), DEFAULT_REGION_ID);
 
                    List<PiDependency> piDependencies;
                    Integer type = validateType(eveType.getGroupId());
@@ -104,7 +106,7 @@ public class PiDataServiceImpl implements PiDataService {
                            .id(eveType.getTypeId())
                            .quantity(type > 1 ? piDependencies.stream().filter(d -> !d.getIsInput()).findFirst()
                                    .map(PiDependency::getQuantity).orElse(null) : null)
-                           .price(marketService.getItemSellOrderPrice(DEFAULT_LOCATION_ID, itemPriceList))
+                           .price(marketService.getItemPriceByOrderTypeFromOrders(SELL_ORDER_TYPE, orders, DEFAULT_LOCATION_ID.longValue()))
                            .name(eveType.getTypeName())
                            .icon(eveImageService.generateIconLink(eveType.getTypeId(), 32))
                            .type(type)
