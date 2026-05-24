@@ -8,6 +8,7 @@ import com.example.pandatribe.models.market.EsiMarketHistory;
 import com.example.pandatribe.models.market.ItemPrice;
 import com.example.pandatribe.models.market.MarketPriceData;
 import com.example.pandatribe.models.market.MarketType;
+import com.example.pandatribe.repositories.interfaces.EveTypesRepository;
 import com.example.pandatribe.repositories.interfaces.MarketHistoryRepository;
 import com.example.pandatribe.repositories.interfaces.MarketOrderRepository;
 import com.example.pandatribe.services.contracts.MarketService;
@@ -24,6 +25,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
@@ -37,6 +39,7 @@ public class MarketServiceImpl implements MarketService {
     private final MarketOrderRepository marketOrderRepository;
     private final MarketHistoryRepository marketHistoryRepository;
     private final MarketOrderRefresher marketOrderRefresher;
+    private final EveTypesRepository eveTypesRepository;
     // Not a Spring bean — excluded from @AllArgsConstructor via initializer
     private final ConcurrentHashMap<String, ReentrantLock> orderRefreshLocks = new ConcurrentHashMap<>();  //NOSONAR
     public static final String DATA_SOURCE = "tranquility";
@@ -106,8 +109,14 @@ public class MarketServiceImpl implements MarketService {
     @Cacheable(value = "cacheMarketTypes", cacheManager = "marketTypesCacheManager")
     public List<MarketType> getMarketTypes() {
         List<MarketType> types = eveInteractor.getMarketTypes();
-        LOGGER.info("Market type index cached: {} types", types.size());
-        return types;
+        List<Integer> ids = types.stream().map(MarketType::getTypeId).collect(Collectors.toList());
+        Set<Integer> validIds = eveTypesRepository.findPublishedMarketTypeIds(ids);
+        List<MarketType> filtered = types.stream()
+                .filter(t -> validIds.contains(t.getTypeId()))
+                .collect(Collectors.toList());
+        LOGGER.info("Market type index cached: {} types ({} removed by SDE published filter)",
+                filtered.size(), types.size() - filtered.size());
+        return filtered;
     }
 
     @Override

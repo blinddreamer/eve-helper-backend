@@ -139,8 +139,10 @@ public class EveInteractorImpl implements EveInteractor {
 
     private static boolean isJunkMarketItem(String name) {
         if (name == null) return false;
-        // T2/T3 blueprints — require invention, not directly purchasable
-        if (name.endsWith(" II Blueprint") || name.endsWith(" III Blueprint")) return true;
+        // T2 blueprints — items ending with " II Blueprint" (modules, drones, etc.)
+        // and "Advanced * Blueprint" (T2 ammo/charge blueprints)
+        if (name.endsWith(" II Blueprint") || name.endsWith(" II Blueprint Copy")) return true;
+        if (name.startsWith("Advanced ") && (name.endsWith(" Blueprint") || name.endsWith(" Blueprint Copy"))) return true;
         // Debug / test / QA items
         if (name.startsWith("DO NOT TRANSLATE")) return true;
         if (name.startsWith("QA ")) return true;
