@@ -40,11 +40,10 @@ public class OAuthTokenService {
         TokenResponse tokenResponse = eveInteractor.requestAccessToken(tokenRequest);
         //   Get character info
         CharacterLoginInfo character = eveInteractor.getCharacterLoginInfo(tokenResponse.getAccessToken());
-        Boolean isPrimary = Boolean.TRUE;
         OAuthToken existing = tokenRepository.findOAuthTokenByCharacterId(character.getCharacterId()).orElse(null);
-        if (existing != null && !existing.getCharacterId().equals(character.getCharacterId())) {
-            isPrimary = Boolean.FALSE;
-        }
+        // New accounts start as primary (they're the only character on the account);
+        // returning characters keep whichever primary status they already had.
+        Boolean isPrimary = Objects.isNull(existing) ? Boolean.TRUE : existing.getIsPrimary();
 
         OAuthToken oAuthToken = OAuthToken.builder()
                 .accessToken(tokenResponse.getAccessToken())

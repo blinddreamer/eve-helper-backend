@@ -13,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.example.pandatribe.utils.Constant.*;
 
@@ -74,8 +76,12 @@ public class PiDataServiceImpl implements PiDataService {
         // Bulk fetch all PI dependencies in one query
         Map<Integer, List<PiDependency>> dependenciesMap = planetaryInteractionRepository.getPiDependenciesBulk(schematicIds);
 
+        // Bulk fetch all EveType rows in one query instead of one query per material
+        Map<Integer, EveType> eveTypesMap = eveTypesRepository.findAllById(materials).stream()
+                .collect(Collectors.toMap(EveType::getTypeId, Function.identity()));
+
         List<PiMat> result = new ArrayList<>(materials.stream().map(id -> {
-                   EveType eveType = eveTypesRepository.findEveTypeByTypeId(id).orElse(null);
+                   EveType eveType = eveTypesMap.get(id);
                    if (eveType == null) {
                        return null;
                    }

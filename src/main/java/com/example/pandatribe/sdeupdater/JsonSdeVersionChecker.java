@@ -79,9 +79,10 @@ public class JsonSdeVersionChecker {
      * @return SDE build number string (e.g. "3350000"), or null if the endpoint is unreachable
      */
     private String getCurrentRemoteVersion() {
+        HttpURLConnection connection = null;
         try {
             URL url = new URL("https://developers.eveonline.com/static-data/tranquility/latest.jsonl");
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
             connection.setConnectTimeout(30000);
             connection.setReadTimeout(30000);
@@ -103,9 +104,12 @@ public class JsonSdeVersionChecker {
             } else {
                 log.warn("latest.jsonl endpoint returned HTTP {} — cannot determine SDE version", responseCode);
             }
-            connection.disconnect();
         } catch (IOException e) {
             log.warn("Failed to fetch SDE version from latest.jsonl: {}", e.getMessage());
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
         }
         return null;
     }

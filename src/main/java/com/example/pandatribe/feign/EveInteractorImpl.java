@@ -104,17 +104,21 @@ public class EveInteractorImpl implements EveInteractor {
         EveApiList client = feign.getRestClient(EveApiList.class, API_ADDRESS);
 
         // Fetch page 1 and read X-Pages header
-        Response firstPage = client.getMarketTypeIds(JITA_REGION_ID, 1);
-        int totalPages = Optional.ofNullable(firstPage.headers().get("X-Pages"))
-                .flatMap(h -> h.stream().findFirst())
-                .map(Integer::parseInt)
-                .orElse(1);
-
-        List<Integer> allIds = new ArrayList<>(parseTypeIds(firstPage));
+        List<Integer> allIds = new ArrayList<>();
+        int totalPages;
+        try (Response firstPage = client.getMarketTypeIds(JITA_REGION_ID, 1)) {
+            totalPages = Optional.ofNullable(firstPage.headers().get("X-Pages"))
+                    .flatMap(h -> h.stream().findFirst())
+                    .map(Integer::parseInt)
+                    .orElse(1);
+            allIds.addAll(parseTypeIds(firstPage));
+        }
 
         // Fetch remaining pages sequentially
         for (int page = 2; page <= totalPages; page++) {
-            allIds.addAll(parseTypeIds(client.getMarketTypeIds(JITA_REGION_ID, page)));
+            try (Response pageResponse = client.getMarketTypeIds(JITA_REGION_ID, page)) {
+                allIds.addAll(parseTypeIds(pageResponse));
+            }
         }
 
         // Deduplicate
@@ -165,22 +169,29 @@ public class EveInteractorImpl implements EveInteractor {
                     new TypeReference<List<Integer>>() {}
             );
         } catch (Exception e) {
-            LOGGER.error("Failed to parse market type IDs from ESI response", e);
-            return Collections.emptyList();
+            // Propagate instead of returning an empty list — callers must not mistake
+            // a parse failure for "ESI has zero results" (that previously caused
+            // MarketOrderRefresher to wipe valid cached data on a transient error).
+            throw new RuntimeException("Failed to parse market type IDs from ESI response", e);
         }
     }
 
     @Override
     public List<ItemPrice> getMarketOrders(Integer typeId, Integer regionId) {
         EveApiList client = feign.getRestClient(EveApiList.class, API_ADDRESS);
-        Response firstPage = client.getMarketOrdersPage(regionId, typeId, 1);
-        int totalPages = Optional.ofNullable(firstPage.headers().get("X-Pages"))
-                .flatMap(h -> h.stream().findFirst())
-                .map(Integer::parseInt)
-                .orElse(1);
-        List<ItemPrice> allOrders = new ArrayList<>(parseItemPrices(firstPage));
+        List<ItemPrice> allOrders = new ArrayList<>();
+        int totalPages;
+        try (Response firstPage = client.getMarketOrdersPage(regionId, typeId, 1)) {
+            totalPages = Optional.ofNullable(firstPage.headers().get("X-Pages"))
+                    .flatMap(h -> h.stream().findFirst())
+                    .map(Integer::parseInt)
+                    .orElse(1);
+            allOrders.addAll(parseItemPrices(firstPage));
+        }
         for (int page = 2; page <= totalPages; page++) {
-            allOrders.addAll(parseItemPrices(client.getMarketOrdersPage(regionId, typeId, page)));
+            try (Response pageResponse = client.getMarketOrdersPage(regionId, typeId, page)) {
+                allOrders.addAll(parseItemPrices(pageResponse));
+            }
         }
         LOGGER.info("Fetched {} orders from ESI for typeId={} regionId={}", allOrders.size(), typeId, regionId);
         return allOrders;
@@ -193,8 +204,7 @@ public class EveInteractorImpl implements EveInteractor {
                     new TypeReference<List<ItemPrice>>() {}
             );
         } catch (Exception e) {
-            LOGGER.error("Failed to parse market orders from ESI response", e);
-            return Collections.emptyList();
+            throw new RuntimeException("Failed to parse market orders from ESI response", e);
         }
     }
 

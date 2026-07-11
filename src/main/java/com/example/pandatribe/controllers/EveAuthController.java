@@ -7,8 +7,9 @@ import com.example.pandatribe.services.character.CharacterServiceImpl;
 import com.example.pandatribe.utils.EncodingUtil;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,11 +22,14 @@ import java.util.UUID;
 @Slf4j
 @RestController
 @RequestMapping("/api/v1")
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class EveAuthController {
     private final OAuthTokenService tokenService;
     private final CharacterServiceImpl characterService;
     private final EncodingUtil encodingUtil;
+
+    @Value("${frontend.base.url}")
+    private String frontendBaseUrl;
 
     @GetMapping("/callback")
     public void handleCallback(@RequestParam("code") String code, HttpServletResponse response) throws IOException {
@@ -42,7 +46,7 @@ public class EveAuthController {
         response.addCookie(sessionCookie);
         response.setContentType("text/html");
         response.getWriter().write("<script>"
-                + "window.opener.postMessage('http://localhost:3000');"
+                + "window.opener.postMessage('" + frontendBaseUrl + "');"
                 + "window.close();</script>");
     }
 
