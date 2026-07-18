@@ -17,4 +17,4 @@ COPY --from=builder /app/target/eve-helper-backend-0.0.1-SNAPSHOT.jar app.jar
 
 EXPOSE 8080
 
-CMD ["java", "-jar", "app.jar"]
+CMD ["java", "-Xms256m", "-Xmx768m", "-XX:MaxMetaspaceSize=256m", "-Xlog:gc*:file=/app/gc.log:time,uptime:filecount=5,filesize=10M", "-jar", "app.jar"]
