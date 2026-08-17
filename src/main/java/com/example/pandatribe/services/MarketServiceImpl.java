@@ -5,9 +5,11 @@ import com.example.pandatribe.models.dbmodels.market.MarketHistoryEntity;
 import com.example.pandatribe.models.dbmodels.market.MarketHistoryId;
 import com.example.pandatribe.models.dbmodels.market.MarketOrderEntity;
 import com.example.pandatribe.models.market.EsiMarketHistory;
+import com.example.pandatribe.models.market.EveMarketGroup;
 import com.example.pandatribe.models.market.ItemPrice;
 import com.example.pandatribe.models.market.MarketPriceData;
 import com.example.pandatribe.models.market.MarketType;
+import com.example.pandatribe.repositories.interfaces.EveMarketGroupsRepository;
 import com.example.pandatribe.repositories.interfaces.EveTypesRepository;
 import com.example.pandatribe.repositories.interfaces.MarketHistoryRepository;
 import com.example.pandatribe.repositories.interfaces.MarketOrderRepository;
@@ -40,6 +42,7 @@ public class MarketServiceImpl implements MarketService {
     private final MarketHistoryRepository marketHistoryRepository;
     private final MarketOrderRefresher marketOrderRefresher;
     private final EveTypesRepository eveTypesRepository;
+    private final EveMarketGroupsRepository eveMarketGroupsRepository;
     // Not a Spring bean — excluded from @AllArgsConstructor via initializer
     private final ConcurrentHashMap<String, ReentrantLock> orderRefreshLocks = new ConcurrentHashMap<>();  //NOSONAR
     public static final String DATA_SOURCE = "tranquility";
@@ -234,5 +237,20 @@ public class MarketServiceImpl implements MarketService {
             return marketHistoryRepository.findByIdTypeIdAndIdRegionIdOrderByIdDateAsc(typeId, regionId);
         }
         return existing;
+    }
+
+    @Override
+    @Cacheable(cacheNames = "marketGroups", cacheManager = "staticDataCacheManager")
+    public List<EveMarketGroup> getMarketGroups() {
+        List<EveMarketGroup> groups = eveMarketGroupsRepository.findAll();
+        LOGGER.info("Market group tree cached: {} groups", groups.size());
+        return groups;
+    }
+
+    @Override
+    public List<MarketType> getMarketGroupTypes(Integer marketGroupId) {
+        return eveTypesRepository.findByMarketGroupIdAndPublishedTrueOrderByTypeNameAsc(marketGroupId).stream()
+                .map(t -> new MarketType(t.getTypeId(), t.getTypeName()))
+                .collect(Collectors.toList());
     }
 }

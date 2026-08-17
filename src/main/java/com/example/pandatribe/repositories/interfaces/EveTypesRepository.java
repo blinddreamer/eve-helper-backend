@@ -18,4 +18,6 @@ public interface EveTypesRepository extends JpaRepository<EveType, Integer> {
 
     @Query("SELECT t.typeId FROM EveType t WHERE t.typeId IN :ids AND t.published = true AND t.marketGroupId IS NOT NULL")
     Set<Integer> findPublishedMarketTypeIds(@Param("ids") Collection<Integer> ids);
+
+    List<EveType> findByMarketGroupIdAndPublishedTrueOrderByTypeNameAsc(Integer marketGroupId);
 }

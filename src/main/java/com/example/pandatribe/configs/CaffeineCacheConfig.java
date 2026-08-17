@@ -57,7 +57,8 @@ public class CaffeineCacheConfig {
             "blueprints",
             "regions",
             "stations",
-            "systemNames"
+            "systemNames",
+            "marketGroups"
         );
         cacheManager.setCaffeine(Caffeine.newBuilder()
             .maximumSize(100));

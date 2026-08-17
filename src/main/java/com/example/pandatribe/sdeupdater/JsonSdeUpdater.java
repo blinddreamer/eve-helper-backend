@@ -61,6 +61,8 @@ public class JsonSdeUpdater {
     @Autowired
     private TypesConverter typesConverter;
     @Autowired
+    private MarketGroupsConverter marketGroupsConverter;
+    @Autowired
     private MapRegionsConverter mapRegionsConverter;
     @Autowired
     private MapSolarSystemsConverter mapSolarSystemsConverter;
@@ -80,6 +82,7 @@ public class JsonSdeUpdater {
         // Map JSON files to their converters
         converterMap.put("blueprints.jsonl", blueprintsConverter);
         converterMap.put("types.jsonl", typesConverter);
+        converterMap.put("marketGroups.jsonl", marketGroupsConverter);
         converterMap.put("mapRegions.jsonl", mapRegionsConverter);
         converterMap.put("mapSolarSystems.jsonl", mapSolarSystemsConverter);
         converterMap.put("npcStations.jsonl", npcStationsConverter);
