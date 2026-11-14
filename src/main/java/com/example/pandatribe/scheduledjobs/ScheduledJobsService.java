@@ -6,7 +6,7 @@ import com.example.pandatribe.repositories.interfaces.AppraisalDataRepository;
 import com.example.pandatribe.repositories.interfaces.BlueprintDataRepository;
 import com.example.pandatribe.repositories.interfaces.MarketOrderRepository;
 import com.example.pandatribe.sdeupdater.JsonSdeVersionChecker;
-import jakarta.transaction.Transactional;
+import com.example.pandatribe.services.authentication.SessionService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -32,12 +32,14 @@ public class ScheduledJobsService {
     private final BlueprintDataRepository blueprintDataRepository;
     private final MarketOrderRepository marketOrderRepository;
     private final JsonSdeVersionChecker jsonSdeVersionChecker;
+    private final SessionService sessionService;
 
     @Scheduled(cron = RUN_EVERY_SUNDAY_AT_4_AM, zone = "UTC")
     public void runWeeklyTask(){
         scheduledRemoveAppraisals();
         scheduledRemoveBlueprintData();
         scheduledRemoveStaleMarketOrders();
+        log.info("Removed {} expired login sessions", sessionService.deleteExpired());
     }
 
     private void scheduledRemoveBlueprintData(){
@@ -63,8 +65,8 @@ public class ScheduledJobsService {
         log.info("Removed " + appraisalsToRemove.size() + " appraisal data");
     }
 
+    // No @Transactional: the update downloads for minutes and manages its own DB work
     @Scheduled(cron = RUN_DAILY_AT_2_30_AM, zone = "UTC")
-    @Transactional
     public void scheduledSdeUpdate() {
         log.info("Starting scheduled EVE SDE update check (JSON format)...");
         jsonSdeVersionChecker.checkForUpdates();

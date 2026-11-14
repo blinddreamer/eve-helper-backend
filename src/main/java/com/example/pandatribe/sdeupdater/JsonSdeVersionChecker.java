@@ -14,7 +14,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -46,8 +45,7 @@ public class JsonSdeVersionChecker {
     }
 
     /**
-     * Checks for SDE updates by comparing the checksum of the latest release
-     * with the tracked version. If a new version is detected, triggers the update process.
+     * Compares the published SDE build with the last successfully applied one and updates if newer.
      */
     public void checkForUpdates() {
         try {
@@ -56,9 +54,10 @@ public class JsonSdeVersionChecker {
 
             if (currentVersion != null && !currentVersion.equals(trackedVersion)) {
                 log.info("New SDE version detected: {} (current: {})", currentVersion, trackedVersion);
-                createUpdateTrigger(currentVersion);
-                jsonSdeUpdater.checkAndUpdate();
-                updateTrackedVersion(currentVersion);
+                // Only record the version once it is live, so a failed update is retried next run
+                if (jsonSdeUpdater.update(currentVersion)) {
+                    updateTrackedVersion(currentVersion);
+                }
             } else {
                 log.info("No SDE updates available. Current version: {}", trackedVersion);
             }
@@ -122,21 +121,6 @@ public class JsonSdeVersionChecker {
             sb.append(new String(buffer, 0, bytesRead, StandardCharsets.UTF_8));
         }
         return sb.toString();
-    }
-
-    /**
-     * Creates a trigger file indicating that an update is needed
-     *
-     * @param version the new SDE version identifier
-     */
-    private void createUpdateTrigger(String version) throws IOException {
-        Path triggerFile = Paths.get("data/sde_update_trigger.txt");
-        Files.createDirectories(triggerFile.getParent());
-        Files.write(triggerFile,
-            Collections.singletonList(version),
-            StandardOpenOption.CREATE,
-            StandardOpenOption.TRUNCATE_EXISTING);
-        log.debug("Update trigger created for version: {}", version);
     }
 
     /**

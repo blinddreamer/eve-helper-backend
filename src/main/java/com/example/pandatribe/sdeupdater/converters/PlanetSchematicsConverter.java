@@ -16,21 +16,26 @@ import java.util.List;
 public class PlanetSchematicsConverter extends SdeJsonToSqlConverter {
 
     @Override
+    public List<String> tables() {
+        return List.of("planetSchematics", "planetSchematicsTypeMap");
+    }
+
+    @Override
     protected void writeDropStatement(BufferedWriter writer) throws IOException {
-        writer.write("DROP TABLE IF EXISTS planetSchematicsTypeMap;\n");
-        writer.write("DROP TABLE IF EXISTS planetSchematics;\n\n");
+        writer.write("DROP TABLE IF EXISTS planetSchematicsTypeMap_new;\n");
+        writer.write("DROP TABLE IF EXISTS planetSchematics_new;\n\n");
     }
 
     @Override
     protected void writeCreateStatement(BufferedWriter writer) throws IOException {
-        writer.write("CREATE TABLE planetSchematics (\n");
+        writer.write("CREATE TABLE planetSchematics_new (\n");
         writer.write("  schematicID INT NOT NULL,\n");
         writer.write("  schematicName VARCHAR(255),\n");
         writer.write("  cycleTime INT,\n");
         writer.write("  PRIMARY KEY (schematicID)\n");
         writer.write(") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;\n\n");
 
-        writer.write("CREATE TABLE planetSchematicsTypeMap (\n");
+        writer.write("CREATE TABLE planetSchematicsTypeMap_new (\n");
         writer.write("  schematicID INT NOT NULL,\n");
         writer.write("  typeID INT NOT NULL,\n");
         writer.write("  quantity INT,\n");
@@ -41,8 +46,8 @@ public class PlanetSchematicsConverter extends SdeJsonToSqlConverter {
 
     @Override
     protected void writeInsertStatements(BufferedWriter writer, List<JsonNode> records) throws IOException {
-        StringBuilder schematicsInsert = new StringBuilder("INSERT INTO planetSchematics (schematicID, schematicName, cycleTime) VALUES\n");
-        StringBuilder typeMapInsert = new StringBuilder("INSERT INTO planetSchematicsTypeMap (schematicID, typeID, quantity, isInput) VALUES\n");
+        StringBuilder schematicsInsert = new StringBuilder("INSERT INTO planetSchematics_new (schematicID, schematicName, cycleTime) VALUES\n");
+        StringBuilder typeMapInsert = new StringBuilder("INSERT INTO planetSchematicsTypeMap_new (schematicID, typeID, quantity, isInput) VALUES\n");
 
         boolean hasTypeMaps = false;
 
@@ -96,8 +101,8 @@ public class PlanetSchematicsConverter extends SdeJsonToSqlConverter {
 
     @Override
     protected void writeIndexStatements(BufferedWriter writer) throws IOException {
-        writer.write("CREATE INDEX idx_schematics_name ON planetSchematics(schematicName);\n");
-        writer.write("CREATE INDEX idx_typemap_typeID ON planetSchematicsTypeMap(typeID);\n");
-        writer.write("CREATE INDEX idx_typemap_isInput ON planetSchematicsTypeMap(isInput);\n");
+        writer.write("CREATE INDEX idx_schematics_name ON planetSchematics_new(schematicName);\n");
+        writer.write("CREATE INDEX idx_typemap_typeID ON planetSchematicsTypeMap_new(typeID);\n");
+        writer.write("CREATE INDEX idx_typemap_isInput ON planetSchematicsTypeMap_new(isInput);\n");
     }
 }

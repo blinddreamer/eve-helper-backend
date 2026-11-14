@@ -7,6 +7,8 @@ import com.example.pandatribe.models.dbmodels.market.MarketOrderEntity;
 import com.example.pandatribe.models.market.EsiMarketHistory;
 import com.example.pandatribe.models.market.EveMarketGroup;
 import com.example.pandatribe.models.market.ItemPrice;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.example.pandatribe.models.market.MarketPriceData;
 import com.example.pandatribe.models.market.MarketType;
 import com.example.pandatribe.repositories.interfaces.EveMarketGroupsRepository;
@@ -28,7 +30,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
@@ -43,44 +45,15 @@ public class MarketServiceImpl implements MarketService {
     private final MarketOrderRefresher marketOrderRefresher;
     private final EveTypesRepository eveTypesRepository;
     private final EveMarketGroupsRepository eveMarketGroupsRepository;
-    // Not a Spring bean — excluded from @AllArgsConstructor via initializer
-    private final ConcurrentHashMap<String, ReentrantLock> orderRefreshLocks = new ConcurrentHashMap<>();  //NOSONAR
+    // Fixed lock striping: bounded memory, and a key always maps to the same lock (no remove() race).
+    // ponytail: 64 stripes means unrelated types occasionally wait on each other; raise if that shows up.
+    private final ReentrantLock[] orderRefreshLocks = initLocks(64);  //NOSONAR
+    // Remembers type/region pairs ESI returned no orders for, so empty markets aren't refetched every call
+    private final Cache<String, Boolean> emptyOrderBooks = Caffeine.newBuilder()  //NOSONAR
+            .expireAfterWrite(ORDER_CACHE_MINUTES, TimeUnit.MINUTES)
+            .maximumSize(100_000)
+            .build();
     public static final String DATA_SOURCE = "tranquility";
-
-    @Override
-    @Cacheable(value = "cacheItemMarketPrice", key = "#typeId + '_' + #regionId + '_' + #orderType")
-    public List<ItemPrice> getItemMarketPrice(Integer typeId, Integer regionId, String orderType) {
-        List<ItemPrice> itemPriceList = eveInteractor.getItemMarketPrice(regionId, DATA_SOURCE, orderType, typeId);
-        LOGGER.info("Item {} prices obtained {}", typeId, !itemPriceList.isEmpty());
-        return itemPriceList;
-    }
-
-    @Override
-    public BigDecimal getItemSellOrderPrice(Integer locationId, List<ItemPrice> itemPriceList) {
-        return itemPriceList.stream()
-                .map(ItemPrice::getPrice)
-                .sorted()
-                .findFirst()
-                .orElse(BigDecimal.ZERO);
-    }
-
-    @Override
-    public BigDecimal getItemPriceByOrderType(String orderType, List<ItemPrice> itemPriceList, Long locationId) {
-        if (orderType.equals("buy")) {
-            return itemPriceList.stream()
-                    .filter(itemPrice -> Objects.equals(itemPrice.getLocationId(), locationId))
-                    .filter(itemPrice -> Objects.equals(itemPrice.getIsBuyOrder(), true))
-                    .map(ItemPrice::getPrice).max(BigDecimal::compareTo)
-                    .orElse(BigDecimal.ZERO);
-        }
-        return itemPriceList.stream()
-                .filter(itemPrice -> Objects.equals(itemPrice.getLocationId(), locationId))
-                .filter(itemPrice -> Objects.equals(itemPrice.getIsBuyOrder(), false))
-                .map(ItemPrice::getPrice)
-                .sorted()
-                .findFirst()
-                .orElse(BigDecimal.ZERO);
-    }
 
     @Override
     public BigDecimal getItemPriceByOrderTypeFromOrders(String orderType, List<MarketOrderEntity> orders, Long locationId) {
@@ -134,8 +107,13 @@ public class MarketServiceImpl implements MarketService {
             return marketOrderRepository.findByTypeIdAndRegionId(typeId, regionId);
         }
 
-        // Acquire per-key lock so only one thread refreshes a given typeId+regionId at a time
-        ReentrantLock lock = orderRefreshLocks.computeIfAbsent(typeId + "_" + regionId, k -> new ReentrantLock());
+        String key = typeId + "_" + regionId;
+        if (emptyOrderBooks.getIfPresent(key) != null) {
+            return List.of();
+        }
+
+        // Only one thread refreshes a given typeId+regionId at a time
+        ReentrantLock lock = orderRefreshLocks[Math.floorMod(key.hashCode(), orderRefreshLocks.length)];
         lock.lock();
         try {
             // Double-check after acquiring lock — another thread may have just refreshed
@@ -166,15 +144,24 @@ public class MarketServiceImpl implements MarketService {
                             .build())
                     .collect(Collectors.toList());
 
+            if (entities.isEmpty()) {
+                emptyOrderBooks.put(key, Boolean.TRUE);
+            }
             // Run delete+insert with READ_COMMITTED isolation to avoid InnoDB gap-lock deadlocks
             List<MarketOrderEntity> saved = marketOrderRefresher.refresh(typeId, regionId, entities);
             LOGGER.info("Cached {} orders for typeId={} regionId={}", saved.size(), typeId, regionId);
             return saved;
         } finally {
             lock.unlock();
-            // Remove lock entry if no other thread is waiting — prevents unbounded map growth
-            orderRefreshLocks.remove(typeId + "_" + regionId, lock);
         }
+    }
+
+    private static ReentrantLock[] initLocks(int count) {
+        ReentrantLock[] locks = new ReentrantLock[count];
+        for (int i = 0; i < count; i++) {
+            locks[i] = new ReentrantLock();
+        }
+        return locks;
     }
 
     private boolean isFresh(Optional<MarketOrderEntity> latest) {

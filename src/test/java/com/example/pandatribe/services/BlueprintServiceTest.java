@@ -118,7 +118,7 @@ class BlueprintServiceTest {
     void shouldCreateAndUpdateBlueprintData() {
         // Create initial blueprint
         BlueprintRequest createRequest = BlueprintRequest.builder()
-                .blueprintName("Tritanium")
+                .blueprintName("Imperial Navy Cenobite")
                 .runs(100)
                 .blueprintMe(10)
                 .system("Jita")
@@ -129,12 +129,12 @@ class BlueprintServiceTest {
         assertThat(created).isNotNull();
         assertThat(created.getId()).isNotBlank();
         assertThat(created.getBlueprintResult()).hasSize(1);
-        assertThat(created.getBlueprintResult().get(0).getName()).isEqualTo("Tritanium");
+        assertThat(created.getBlueprintResult().get(0).getName()).isEqualTo("Imperial Navy Cenobite");
 
         // Update the blueprint
         BlueprintRequest updateRequest = BlueprintRequest.builder()
                 .requestId(created.getId())
-                .blueprintName("Tritanium")
+                .blueprintName("Cenobite I")
                 .runs(200)
                 .build();
 
@@ -153,7 +153,7 @@ class BlueprintServiceTest {
     void shouldHandleMassUpdateOfMaterials() {
         // First create a blueprint
         BlueprintRequest createRequest = BlueprintRequest.builder()
-                .blueprintName("Tritanium")
+                .blueprintName("Imperial Navy Cenobite")
                 .runs(100)
                 .build();
 
@@ -163,7 +163,7 @@ class BlueprintServiceTest {
         List<BlueprintRequest> massUpdateRequests = List.of(
                 BlueprintRequest.builder()
                         .requestId(created.getId())
-                        .blueprintName("Tritanium")
+                        .blueprintName("Cenobite I")
                         .runs(150)
                         .build()
         );
@@ -194,7 +194,7 @@ class BlueprintServiceTest {
     @DisplayName("Should handle blueprint requests with all optional parameters")
     void shouldHandleBlueprintRequestsWithAllParameters() {
         BlueprintRequest request = BlueprintRequest.builder()
-                .blueprintName("Tritanium")
+                .blueprintName("Imperial Navy Cenobite")
                 .runs(100)
                 .blueprintMe(10)
                 .buildingRig(2)
@@ -223,7 +223,7 @@ class BlueprintServiceTest {
     @DisplayName("Should use default values when optional parameters are not provided")
     void shouldUseDefaultValuesForOptionalParameters() {
         BlueprintRequest request = BlueprintRequest.builder()
-                .blueprintName("Tritanium")
+                .blueprintName("Imperial Navy Cenobite")
                 .build();
 
         BlueprintData result = blueprintService.getInitialBlueprintData(request);
@@ -236,5 +236,34 @@ class BlueprintServiceTest {
         assertThat(blueprint.getBlueprintMaterialEfficiency()).isEqualTo(0);
         assertThat(blueprint.getRigDiscount()).isEqualTo(0);
         assertThat(blueprint.getBuildingDiscount()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("Calculator cache must not mix results that differ only in system or facility tax")
+    void shouldNotServeCachedResultForDifferentInputs() {
+        BlueprintRequest jita = BlueprintRequest.builder()
+                .blueprintName("Imperial Navy Cenobite").runs(10).blueprintMe(0)
+                .system("Jita").facilityTax(0.0).build();
+        BlueprintRequest amarr = BlueprintRequest.builder()
+                .blueprintName("Imperial Navy Cenobite").runs(10).blueprintMe(0)
+                .system("Amarr").facilityTax(5.0).build();
+
+        var first = blueprintService.getInitialBlueprintData(jita).getBlueprintResult().get(0);
+        var second = blueprintService.getInitialBlueprintData(amarr).getBlueprintResult().get(0);
+
+        assertThat(first.getSystem()).isEqualTo("Jita");
+        assertThat(second.getSystem()).isEqualTo("Amarr");
+        assertThat(second.getFacilityTax()).isEqualTo(5.0);
+    }
+
+    @Test
+    @DisplayName("Selecting a non-craftable material for crafting is rejected, not stored as null")
+    void shouldRejectNonCraftableSubMaterial() {
+        BlueprintData created = blueprintService.getInitialBlueprintData(BlueprintRequest.builder()
+                .blueprintName("Imperial Navy Cenobite").runs(10).build());
+
+        assertThatThrownBy(() -> blueprintService.updateSubMaterials(BlueprintRequest.builder()
+                .requestId(created.getId()).blueprintName("Tritanium").runs(10).build()))
+                .isInstanceOf(BlueprintNotFoundException.class);
     }
 }

@@ -16,13 +16,18 @@ import java.util.List;
 public class MapSolarSystemsConverter extends SdeJsonToSqlConverter {
 
     @Override
+    public List<String> tables() {
+        return List.of("mapSolarSystems");
+    }
+
+    @Override
     protected void writeDropStatement(BufferedWriter writer) throws IOException {
-        writer.write("DROP TABLE IF EXISTS mapSolarSystems;\n\n");
+        writer.write("DROP TABLE IF EXISTS mapSolarSystems_new;\n\n");
     }
 
     @Override
     protected void writeCreateStatement(BufferedWriter writer) throws IOException {
-        writer.write("CREATE TABLE mapSolarSystems (\n");
+        writer.write("CREATE TABLE mapSolarSystems_new (\n");
         writer.write("  solarSystemID INT NOT NULL,\n");
         writer.write("  solarSystemName VARCHAR(255),\n");
         writer.write("  regionID INT,\n");
@@ -35,7 +40,7 @@ public class MapSolarSystemsConverter extends SdeJsonToSqlConverter {
 
     @Override
     protected void writeInsertStatements(BufferedWriter writer, List<JsonNode> records) throws IOException {
-        StringBuilder insert = new StringBuilder("INSERT INTO mapSolarSystems (solarSystemID, solarSystemName, regionID, constellationID, security, securityClass) VALUES\n");
+        StringBuilder insert = new StringBuilder("INSERT INTO mapSolarSystems_new (solarSystemID, solarSystemName, regionID, constellationID, security, securityClass) VALUES\n");
 
         for (int i = 0; i < records.size(); i++) {
             JsonNode system = records.get(i);
@@ -57,7 +62,7 @@ public class MapSolarSystemsConverter extends SdeJsonToSqlConverter {
                 .append(systemName).append(", ")
                 .append(getInt(system, "regionID")).append(", ")
                 .append(getInt(system, "constellationID")).append(", ")
-                .append(getDouble(system, "security")).append(", ")
+                .append(getDouble(system, "securityStatus")).append(", ")
                 .append(getString(system, "securityClass"))
                 .append(")");
         }
@@ -68,9 +73,9 @@ public class MapSolarSystemsConverter extends SdeJsonToSqlConverter {
 
     @Override
     protected void writeIndexStatements(BufferedWriter writer) throws IOException {
-        writer.write("CREATE INDEX idx_systems_name ON mapSolarSystems(solarSystemName);\n");
-        writer.write("CREATE INDEX idx_systems_region ON mapSolarSystems(regionID);\n");
-        writer.write("CREATE INDEX idx_systems_constellation ON mapSolarSystems(constellationID);\n");
-        writer.write("CREATE INDEX idx_systems_security ON mapSolarSystems(security);\n");
+        writer.write("CREATE INDEX idx_systems_name ON mapSolarSystems_new(solarSystemName);\n");
+        writer.write("CREATE INDEX idx_systems_region ON mapSolarSystems_new(regionID);\n");
+        writer.write("CREATE INDEX idx_systems_constellation ON mapSolarSystems_new(constellationID);\n");
+        writer.write("CREATE INDEX idx_systems_security ON mapSolarSystems_new(security);\n");
     }
 }

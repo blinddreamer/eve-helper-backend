@@ -31,3 +31,8 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Runtime files written by the SDE updater
+data/
+temp_sde_downloads/
+db/sde_migrations/

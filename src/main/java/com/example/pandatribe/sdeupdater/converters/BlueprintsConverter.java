@@ -17,16 +17,20 @@ import java.util.List;
 public class BlueprintsConverter extends SdeJsonToSqlConverter {
 
     @Override
+    public List<String> tables() {
+        return List.of("industryActivityMaterials", "industryActivityProducts");
+    }
+
+    @Override
     protected void writeDropStatement(BufferedWriter writer) throws IOException {
-        writer.write("DROP TABLE IF EXISTS industryActivityMaterials;\n");
-        writer.write("DROP TABLE IF EXISTS industryActivityProducts;\n");
-        writer.write("DROP TABLE IF EXISTS industryActivity;\n\n");
+        writer.write("DROP TABLE IF EXISTS industryActivityMaterials_new;\n");
+        writer.write("DROP TABLE IF EXISTS industryActivityProducts_new;\n");
     }
 
     @Override
     protected void writeCreateStatement(BufferedWriter writer) throws IOException {
         // Industry Activity Materials table
-        writer.write("CREATE TABLE industryActivityMaterials (\n");
+        writer.write("CREATE TABLE industryActivityMaterials_new (\n");
         writer.write("  typeID INT NOT NULL,\n");
         writer.write("  activityID INT NOT NULL,\n");
         writer.write("  materialTypeID INT NOT NULL,\n");
@@ -35,7 +39,7 @@ public class BlueprintsConverter extends SdeJsonToSqlConverter {
         writer.write(") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;\n\n");
 
         // Industry Activity Products table
-        writer.write("CREATE TABLE industryActivityProducts (\n");
+        writer.write("CREATE TABLE industryActivityProducts_new (\n");
         writer.write("  typeID INT NOT NULL,\n");
         writer.write("  activityID INT NOT NULL,\n");
         writer.write("  productTypeID INT NOT NULL,\n");
@@ -46,14 +50,14 @@ public class BlueprintsConverter extends SdeJsonToSqlConverter {
 
     @Override
     protected void writeInsertStatements(BufferedWriter writer, List<JsonNode> records) throws IOException {
-        StringBuilder materialsInsert = new StringBuilder("INSERT INTO industryActivityMaterials (typeID, activityID, materialTypeID, quantity) VALUES\n");
-        StringBuilder productsInsert = new StringBuilder("INSERT INTO industryActivityProducts (typeID, activityID, productTypeID, quantity) VALUES\n");
+        StringBuilder materialsInsert = new StringBuilder("INSERT INTO industryActivityMaterials_new (typeID, activityID, materialTypeID, quantity) VALUES\n");
+        StringBuilder productsInsert = new StringBuilder("INSERT INTO industryActivityProducts_new (typeID, activityID, productTypeID, quantity) VALUES\n");
 
         boolean hasMaterials = false;
         boolean hasProducts = false;
 
         for (JsonNode blueprint : records) {
-            int blueprintTypeID = blueprint.get("blueprintTypeID").asInt();
+            int blueprintTypeID = blueprint.get("_key").asInt();
             JsonNode activities = blueprint.get("activities");
 
             if (activities == null) {
@@ -123,10 +127,10 @@ public class BlueprintsConverter extends SdeJsonToSqlConverter {
 
     @Override
     protected void writeIndexStatements(BufferedWriter writer) throws IOException {
-        writer.write("CREATE INDEX idx_materials_typeID ON industryActivityMaterials(materialTypeID);\n");
-        writer.write("CREATE INDEX idx_products_typeID ON industryActivityProducts(productTypeID);\n");
-        writer.write("CREATE INDEX idx_materials_activity ON industryActivityMaterials(activityID);\n");
-        writer.write("CREATE INDEX idx_products_activity ON industryActivityProducts(activityID);\n");
+        writer.write("CREATE INDEX idx_materials_typeID ON industryActivityMaterials_new(materialTypeID);\n");
+        writer.write("CREATE INDEX idx_products_typeID ON industryActivityProducts_new(productTypeID);\n");
+        writer.write("CREATE INDEX idx_materials_activity ON industryActivityMaterials_new(activityID);\n");
+        writer.write("CREATE INDEX idx_products_activity ON industryActivityProducts_new(activityID);\n");
     }
 
     /**

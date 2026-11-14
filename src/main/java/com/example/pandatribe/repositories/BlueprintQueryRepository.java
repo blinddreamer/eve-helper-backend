@@ -116,7 +116,8 @@ public class BlueprintQueryRepository {
                 .setParameter("typeId", typeId)
                 .getResultList();
 
-        return result.isEmpty() ? null : (Double) result.get(0);
+        // Number: the column is INT in the bundled baseline SQL and DOUBLE once the SDE updater has run
+        return result.isEmpty() || result.get(0) == null ? null : ((Number) result.get(0)).doubleValue();
     }
 
     /**

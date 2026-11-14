@@ -3,7 +3,7 @@ package com.example.pandatribe.services.builders;
 import com.example.pandatribe.constants.EveConstants;
 import com.example.pandatribe.models.industry.blueprints.BlueprintActivity;
 import com.example.pandatribe.models.industry.blueprints.EveType;
-import com.example.pandatribe.models.market.ItemPrice;
+import com.example.pandatribe.models.dbmodels.market.MarketOrderEntity;
 import com.example.pandatribe.models.market.MarketPriceData;
 import com.example.pandatribe.models.requests.MaterialInfo;
 import com.example.pandatribe.services.contracts.MarketService;
@@ -51,7 +51,7 @@ public class MaterialInfoBuilder {
             Integer baseQuantity,
             Double volume,
             BlueprintActivity blueprintActivity,
-            List<ItemPrice> marketItemPriceData,
+            List<MarketOrderEntity> marketItemPriceData,
             List<MarketPriceData> marketPriceData,
             Long locationId,
             Integer initialTier) {
@@ -61,8 +61,8 @@ public class MaterialInfoBuilder {
                 .name(eveType.getTypeName())
                 .quantity(quantity)
                 .volume(Objects.nonNull(volume) ? volume : eveType.getVolume())
-                .buyPrice(marketService.getItemPriceByOrderType("buy", marketItemPriceData, locationId))
-                .sellPrice(marketService.getItemPriceByOrderType("sell", marketItemPriceData, locationId))
+                .buyPrice(marketService.getItemPriceByOrderTypeFromOrders("buy", marketItemPriceData, locationId))
+                .sellPrice(marketService.getItemPriceByOrderTypeFromOrders("sell", marketItemPriceData, locationId))
                 .adjustedPrice(calculateAdjustedPrice(eveType.getTypeId(), baseQuantity, marketPriceData))
                 .isCreatable(isCreatable(blueprintActivity))
                 .activityId(determineActivityId(eveType.getTypeName(), blueprintActivity))

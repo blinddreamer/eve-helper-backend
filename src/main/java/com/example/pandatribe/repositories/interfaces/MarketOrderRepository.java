@@ -19,7 +19,9 @@ public interface MarketOrderRepository extends JpaRepository<MarketOrderEntity, 
 
     Optional<MarketOrderEntity> findTopByTypeIdAndRegionIdOrderByFetchedAtDesc(Integer typeId, Integer regionId);
 
-    @Modifying
+    // A bulk delete bypasses the persistence context; clear it so the saveAll that follows inserts
+    // fresh rows instead of "updating" cached entities whose rows are already gone.
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Transactional
     @Query("DELETE FROM MarketOrderEntity o WHERE o.typeId = :typeId AND o.regionId = :regionId")
     void deleteByTypeIdAndRegionId(@Param("typeId") Integer typeId, @Param("regionId") Integer regionId);

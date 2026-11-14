@@ -1,93 +1,81 @@
 package com.example.pandatribe.utils;
 
-import org.bitcoinj.core.Base58;
 import org.springframework.stereotype.Component;
 
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.UUID;
 
 /**
- * Utility class for encoding and compressing data.
- * Provides Base58 encoding for integers and UUIDs to create shorter URL-safe strings.
+ * Base58 (Bitcoin alphabet) encoding of UUIDs, used for short appraisal links.
+ * Byte-for-byte compatible with bitcoinj's Base58, so existing links keep working.
  */
 @Component
 public class EncodingUtil {
 
-    /**
-     * Compresses an Integer into a Base58 string.
-     * Useful for creating shorter, URL-safe IDs.
-     *
-     * @param number The integer to compress
-     * @return Base58 encoded string
-     */
-    public String compressInteger(Integer number) {
-        ByteBuffer byteBuffer = ByteBuffer.allocate(4); // Integer = 4 bytes
-        byteBuffer.putInt(number);
-        return Base58.encode(byteBuffer.array());
-    }
+    private static final String ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+    private static final BigInteger BASE = BigInteger.valueOf(58);
 
-    /**
-     * Decompresses a Base58 string back into an Integer.
-     *
-     * @param shortNumber The Base58 encoded string
-     * @return The original integer
-     */
-    public Integer decompressInteger(String shortNumber) {
-        byte[] bytes = Base58.decode(shortNumber);
-        ByteBuffer byteBuffer = ByteBuffer.wrap(bytes);
-        return byteBuffer.getInt();
-    }
-
-    /**
-     * Compresses a UUID into a Base58 string.
-     * Converts a 36-character UUID into a shorter URL-safe format.
-     *
-     * @param uuid The UUID to compress
-     * @return Base58 encoded string (typically 22 characters)
-     */
     public String compressUUID(UUID uuid) {
-        ByteBuffer byteBuffer = ByteBuffer.wrap(new byte[16]);
-        byteBuffer.putLong(uuid.getMostSignificantBits());
-        byteBuffer.putLong(uuid.getLeastSignificantBits());
-        return Base58.encode(byteBuffer.array());
+        ByteBuffer buffer = ByteBuffer.allocate(16);
+        buffer.putLong(uuid.getMostSignificantBits());
+        buffer.putLong(uuid.getLeastSignificantBits());
+        return encode(buffer.array());
     }
 
     /**
-     * Decompresses a Base58 string back into a UUID.
-     *
-     * @param shortUuid The Base58 encoded UUID string
-     * @return The original UUID
+     * @throws IllegalArgumentException if the value is not a Base58-encoded UUID
      */
     public UUID decompressUUID(String shortUuid) {
-        byte[] bytes = Base58.decode(shortUuid);
-        ByteBuffer byteBuffer = ByteBuffer.wrap(bytes);
-        long mostSigBits = byteBuffer.getLong();
-        long leastSigBits = byteBuffer.getLong();
-        return new UUID(mostSigBits, leastSigBits);
-    }
-
-    /**
-     * Generates a short ID from a UUID.
-     * Convenience method that combines UUID generation and compression.
-     *
-     * @return A new compressed UUID string
-     */
-    public String generateShortId() {
-        return compressUUID(UUID.randomUUID());
-    }
-
-    /**
-     * Validates if a string is a valid Base58 encoded value.
-     *
-     * @param encoded The string to validate
-     * @return true if valid Base58, false otherwise
-     */
-    public boolean isValidBase58(String encoded) {
-        try {
-            Base58.decode(encoded);
-            return true;
-        } catch (Exception e) {
-            return false;
+        byte[] bytes = decode(shortUuid);
+        if (bytes.length != 16) {
+            throw new IllegalArgumentException("Not a valid short id: " + shortUuid);
         }
+        ByteBuffer buffer = ByteBuffer.wrap(bytes);
+        return new UUID(buffer.getLong(), buffer.getLong());
+    }
+
+    static String encode(byte[] input) {
+        StringBuilder sb = new StringBuilder();
+        BigInteger value = new BigInteger(1, input);
+        while (value.signum() > 0) {
+            BigInteger[] divRem = value.divideAndRemainder(BASE);
+            sb.append(ALPHABET.charAt(divRem[1].intValue()));
+            value = divRem[0];
+        }
+        for (int i = 0; i < input.length && input[i] == 0; i++) {
+            sb.append(ALPHABET.charAt(0));
+        }
+        return sb.reverse().toString();
+    }
+
+    static byte[] decode(String input) {
+        if (input == null) {
+            throw new IllegalArgumentException("Short id is missing");
+        }
+        BigInteger value = BigInteger.ZERO;
+        for (char c : input.toCharArray()) {
+            int digit = ALPHABET.indexOf(c);
+            if (digit < 0) {
+                throw new IllegalArgumentException("Invalid Base58 character in: " + input);
+            }
+            value = value.multiply(BASE).add(BigInteger.valueOf(digit));
+        }
+        byte[] magnitude = value.toByteArray();
+        // toByteArray() may prepend a sign byte; strip it
+        if (magnitude.length > 1 && magnitude[0] == 0) {
+            magnitude = Arrays.copyOfRange(magnitude, 1, magnitude.length);
+        }
+        if (value.signum() == 0) {
+            magnitude = new byte[0];
+        }
+        int leadingZeros = 0;
+        while (leadingZeros < input.length() && input.charAt(leadingZeros) == ALPHABET.charAt(0)) {
+            leadingZeros++;
+        }
+        byte[] out = new byte[leadingZeros + magnitude.length];
+        System.arraycopy(magnitude, 0, out, leadingZeros, magnitude.length);
+        return out;
     }
 }

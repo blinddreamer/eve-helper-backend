@@ -16,13 +16,18 @@ import java.util.List;
 public class MapRegionsConverter extends SdeJsonToSqlConverter {
 
     @Override
+    public List<String> tables() {
+        return List.of("mapRegions");
+    }
+
+    @Override
     protected void writeDropStatement(BufferedWriter writer) throws IOException {
-        writer.write("DROP TABLE IF EXISTS mapRegions;\n\n");
+        writer.write("DROP TABLE IF EXISTS mapRegions_new;\n\n");
     }
 
     @Override
     protected void writeCreateStatement(BufferedWriter writer) throws IOException {
-        writer.write("CREATE TABLE mapRegions (\n");
+        writer.write("CREATE TABLE mapRegions_new (\n");
         writer.write("  regionID INT NOT NULL,\n");
         writer.write("  regionName VARCHAR(255),\n");
         writer.write("  x DOUBLE,\n");
@@ -37,7 +42,7 @@ public class MapRegionsConverter extends SdeJsonToSqlConverter {
 
     @Override
     protected void writeInsertStatements(BufferedWriter writer, List<JsonNode> records) throws IOException {
-        StringBuilder insert = new StringBuilder("INSERT INTO mapRegions (regionID, regionName, x, y, z, factionID, nebulaID, wormholeClassID) VALUES\n");
+        StringBuilder insert = new StringBuilder("INSERT INTO mapRegions_new (regionID, regionName, x, y, z, factionID, nebulaID, wormholeClassID) VALUES\n");
 
         for (int i = 0; i < records.size(); i++) {
             JsonNode region = records.get(i);
@@ -82,7 +87,7 @@ public class MapRegionsConverter extends SdeJsonToSqlConverter {
 
     @Override
     protected void writeIndexStatements(BufferedWriter writer) throws IOException {
-        writer.write("CREATE INDEX idx_regions_name ON mapRegions(regionName);\n");
-        writer.write("CREATE INDEX idx_regions_faction ON mapRegions(factionID);\n");
+        writer.write("CREATE INDEX idx_regions_name ON mapRegions_new(regionName);\n");
+        writer.write("CREATE INDEX idx_regions_faction ON mapRegions_new(factionID);\n");
     }
 }

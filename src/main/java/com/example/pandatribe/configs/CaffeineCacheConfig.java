@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit;
  *
  * Cache Types:
  * - Static SDE Data: blueprints, regions, stations, systemNames - NEVER expires (warmed on startup)
- * - Market Data: cacheItemMarketPrice, cacheMarketPrices, cacheCalculator, cacheBlueprintData - expire after 30 minutes
+ * - Market Data: cacheMarketPrices, cacheCalculator - expire after 30 minutes
  * - Cost Indexes: cacheCostIndexes - expire after 1 hour
  *
  * Static data is pre-loaded on startup via CacheWarmingService for instant first requests.
@@ -31,10 +31,8 @@ public class CaffeineCacheConfig {
     @Primary
     public CacheManager cacheManager() {
         CaffeineCacheManager cacheManager = new CaffeineCacheManager(
-            "cacheItemMarketPrice",
             "cacheMarketPrices",
-            "cacheCalculator",
-            "cacheBlueprintData"
+            "cacheCalculator"
         );
         cacheManager.setCaffeine(Caffeine.newBuilder()
             .maximumSize(1000)

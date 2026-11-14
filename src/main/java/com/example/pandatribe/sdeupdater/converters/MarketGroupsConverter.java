@@ -18,13 +18,18 @@ import java.util.List;
 public class MarketGroupsConverter extends SdeJsonToSqlConverter {
 
     @Override
+    public List<String> tables() {
+        return List.of("invMarketGroups");
+    }
+
+    @Override
     protected void writeDropStatement(BufferedWriter writer) throws IOException {
-        writer.write("DROP TABLE IF EXISTS invMarketGroups;\n\n");
+        writer.write("DROP TABLE IF EXISTS invMarketGroups_new;\n\n");
     }
 
     @Override
     protected void writeCreateStatement(BufferedWriter writer) throws IOException {
-        writer.write("CREATE TABLE invMarketGroups (\n");
+        writer.write("CREATE TABLE invMarketGroups_new (\n");
         writer.write("  marketGroupID INT NOT NULL,\n");
         writer.write("  parentGroupID INT,\n");
         writer.write("  marketGroupName VARCHAR(255),\n");
@@ -38,7 +43,7 @@ public class MarketGroupsConverter extends SdeJsonToSqlConverter {
     @Override
     protected void writeInsertStatements(BufferedWriter writer, List<JsonNode> records) throws IOException {
         StringBuilder insert = new StringBuilder(
-                "INSERT INTO invMarketGroups (marketGroupID, parentGroupID, marketGroupName, description, iconID, hasTypes) VALUES\n");
+                "INSERT INTO invMarketGroups_new (marketGroupID, parentGroupID, marketGroupName, description, iconID, hasTypes) VALUES\n");
 
         for (int i = 0; i < records.size(); i++) {
             JsonNode group = records.get(i);
@@ -81,6 +86,6 @@ public class MarketGroupsConverter extends SdeJsonToSqlConverter {
 
     @Override
     protected void writeIndexStatements(BufferedWriter writer) throws IOException {
-        writer.write("CREATE INDEX idx_marketgroups_parentGroupID ON invMarketGroups(parentGroupID);\n");
+        writer.write("CREATE INDEX idx_marketgroups_parentGroupID ON invMarketGroups_new(parentGroupID);\n");
     }
 }

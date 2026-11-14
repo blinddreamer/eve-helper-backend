@@ -1,9 +1,44 @@
-name: Build and Push Docker image to Docker Hub
+name: Test, then build and push Docker image
 
-on: push
+on:
+  push:
+  pull_request:
+
 jobs:
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: test132
+          # older migrations hardcode the "evesde" schema
+          MARIADB_DATABASE: evesde
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Test
+        env:
+          DB_USER: root
+          DB_PASS: test132
+        run: mvn -B test -Dspring.datasource.url=jdbc:mariadb://127.0.0.1:3306/evesde
+
   push_to_registry:
     name: Push Docker image to Docker Hub
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repo
@@ -22,4 +57,3 @@ jobs:
           tags: blinddreamer/eve-helper-backend:latest
           pull: true
           no-cache: true
-

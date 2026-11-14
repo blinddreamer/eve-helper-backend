@@ -16,15 +16,20 @@ import java.util.List;
 public class TypesConverter extends SdeJsonToSqlConverter {
 
     @Override
+    public List<String> tables() {
+        return List.of("invTypes", "invVolumes");
+    }
+
+    @Override
     protected void writeDropStatement(BufferedWriter writer) throws IOException {
-        writer.write("DROP TABLE IF EXISTS invTypes;\n");
-        writer.write("DROP TABLE IF EXISTS invVolumes;\n\n");
+        writer.write("DROP TABLE IF EXISTS invTypes_new;\n");
+        writer.write("DROP TABLE IF EXISTS invVolumes_new;\n\n");
     }
 
     @Override
     protected void writeCreateStatement(BufferedWriter writer) throws IOException {
         // invTypes table
-        writer.write("CREATE TABLE invTypes (\n");
+        writer.write("CREATE TABLE invTypes_new (\n");
         writer.write("  typeID INT NOT NULL,\n");
         writer.write("  groupID INT,\n");
         writer.write("  typeName VARCHAR(255),\n");
@@ -44,7 +49,7 @@ public class TypesConverter extends SdeJsonToSqlConverter {
         writer.write(") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;\n\n");
 
         // invVolumes table
-        writer.write("CREATE TABLE invVolumes (\n");
+        writer.write("CREATE TABLE invVolumes_new (\n");
         writer.write("  typeID INT NOT NULL,\n");
         writer.write("  volume DOUBLE,\n");
         writer.write("  PRIMARY KEY (typeID)\n");
@@ -53,8 +58,8 @@ public class TypesConverter extends SdeJsonToSqlConverter {
 
     @Override
     protected void writeInsertStatements(BufferedWriter writer, List<JsonNode> records) throws IOException {
-        StringBuilder typesInsert = new StringBuilder("INSERT INTO invTypes (typeID, groupID, typeName, description, mass, volume, capacity, portionSize, raceID, basePrice, published, marketGroupID, iconID, soundID, graphicID) VALUES\n");
-        StringBuilder volumesInsert = new StringBuilder("INSERT INTO invVolumes (typeID, volume) VALUES\n");
+        StringBuilder typesInsert = new StringBuilder("INSERT INTO invTypes_new (typeID, groupID, typeName, description, mass, volume, capacity, portionSize, raceID, basePrice, published, marketGroupID, iconID, soundID, graphicID) VALUES\n");
+        StringBuilder volumesInsert = new StringBuilder("INSERT INTO invVolumes_new (typeID, volume) VALUES\n");
 
         boolean hasVolumes = false;
 
@@ -129,9 +134,9 @@ public class TypesConverter extends SdeJsonToSqlConverter {
 
     @Override
     protected void writeIndexStatements(BufferedWriter writer) throws IOException {
-        writer.write("CREATE INDEX idx_types_groupID ON invTypes(groupID);\n");
-        writer.write("CREATE INDEX idx_types_marketGroupID ON invTypes(marketGroupID);\n");
-        writer.write("CREATE INDEX idx_types_published ON invTypes(published);\n");
-        writer.write("CREATE INDEX idx_types_name ON invTypes(typeName);\n");
+        writer.write("CREATE INDEX idx_types_groupID ON invTypes_new(groupID);\n");
+        writer.write("CREATE INDEX idx_types_marketGroupID ON invTypes_new(marketGroupID);\n");
+        writer.write("CREATE INDEX idx_types_published ON invTypes_new(published);\n");
+        writer.write("CREATE INDEX idx_types_name ON invTypes_new(typeName);\n");
     }
 }

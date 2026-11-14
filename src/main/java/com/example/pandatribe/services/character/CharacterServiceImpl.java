@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -20,11 +19,15 @@ public class CharacterServiceImpl {
     private final CharacterDataRepository characterDataRepository;
     private final OAuthTokenService oAuthTokenService;
 
-    public CharResult getCharacter(UUID sessionUUID) {
-        OAuthToken oAuthToken = oAuthTokenService.findPrimaryCharacter(sessionUUID.toString());
+    /** @return null if the account has no primary character (e.g. tokens were removed) */
+    public CharResult getCharacter(String accountId) {
+        OAuthToken oAuthToken = oAuthTokenService.findPrimaryCharacter(accountId);
+        if (oAuthToken == null) {
+            return null;
+        }
         CharacterData csData = characterDataRepository.findById(oAuthToken.getCharacterId()).orElse(null);
         if (csData == null) {
-            throw new RuntimeException("character not found");
+            return null;
         }
         return CharResult.builder().charId(csData.getCharId()).name(csData.getCharName()).avatar(csData.getAvatar()).build();
     }

@@ -26,6 +26,8 @@ import java.util.List;
 @RequestMapping("/api/v1/")
 public class EveBlueprintController {
     private static final Logger LOGGER = LoggerFactory.getLogger(EveBlueprintController.class);
+    // Each entry can trigger a full sub-blueprint calculation
+    private static final int MAX_MASS_UPDATE = 200;
     private final JsonLogger jsonLogger;
     private final BlueprintService blueprintService;
 
@@ -53,6 +55,9 @@ public class EveBlueprintController {
         LOGGER.info("REQUEST for submaterials: ");
         if(subMaterialsRequest == null || subMaterialsRequest.isEmpty()){
             throw new InvalidRequestException("Request list cannot be null or empty");
+        }
+        if (subMaterialsRequest.size() > MAX_MASS_UPDATE) {
+            throw new InvalidRequestException("At most " + MAX_MASS_UPDATE + " materials can be updated at once");
         }
         jsonLogger.println(subMaterialsRequest);
         BlueprintData blueprintDto = blueprintService.massUpdateMaterials(subMaterialsRequest);

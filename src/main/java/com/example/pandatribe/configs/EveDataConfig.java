@@ -37,4 +37,27 @@ public class EveDataConfig {
      */
     @Value("${eve.default.location.id:60003760}")
     private Long defaultLocationId;
+
+    /**
+     * Region from a "regionId_locationId" market key (e.g. "10000002_60003760").
+     * Falls back to the default for null or malformed input instead of throwing.
+     */
+    public Integer resolveRegionId(String market) {
+        String part = marketPart(market, 0);
+        return part != null ? Integer.valueOf(part) : defaultRegionId;
+    }
+
+    /** Station/structure from a "regionId_locationId" market key; default when missing or malformed. */
+    public Long resolveLocationId(String market) {
+        String part = marketPart(market, 1);
+        return part != null ? Long.valueOf(part) : defaultLocationId;
+    }
+
+    private static String marketPart(String market, int index) {
+        // digit limits keep Integer/Long parsing from overflowing
+        if (market == null || !market.matches("\\d{1,9}_\\d{1,18}")) {
+            return null;
+        }
+        return market.split("_")[index];
+    }
 }

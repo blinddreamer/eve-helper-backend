@@ -81,11 +81,8 @@ class GlobalExceptionHandlerTest {
 
         record TestRequest(String name) {
         }
-
-        @Bean
-        public TestExceptionController testExceptionController() {
-            return new TestExceptionController();
-        }
+        // No @Bean for the controller: component scanning already registers it, and a second
+        // registration made every mapping ambiguous so the context never started.
     }
 
     @Test

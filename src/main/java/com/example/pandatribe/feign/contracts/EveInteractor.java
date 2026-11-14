@@ -23,8 +23,6 @@ public interface EveInteractor {
 
     CharPortrait getCharPortrait(Integer characterId);
 
-    List<ItemPrice> getItemMarketPrice(Integer regionId, String dataSource, String orderType, Integer typeId);
-
     List<MarketPriceData> getMarketPrices();
 
     List<SystemCostIndexes> getSystemCostIndexes();

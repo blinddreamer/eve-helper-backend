@@ -5,7 +5,7 @@ import com.example.pandatribe.exceptions.MaterialNotFoundException;
 import com.example.pandatribe.models.industry.blueprints.BlueprintActivity;
 import com.example.pandatribe.models.industry.blueprints.EveType;
 import com.example.pandatribe.models.industry.blueprints.Material;
-import com.example.pandatribe.models.market.ItemPrice;
+import com.example.pandatribe.models.dbmodels.market.MarketOrderEntity;
 import com.example.pandatribe.models.market.MarketPriceData;
 import com.example.pandatribe.models.requests.MaterialInfo;
 import com.example.pandatribe.repositories.BlueprintQueryRepository;
@@ -90,9 +90,7 @@ public class MaterialsServiceImpl implements MaterialService {
                     });
 
             // Fetch market data
-            List<ItemPrice> marketItemPriceData = marketService.getItemMarketPrice(
-                materialTypeId, regionId, EveConstants.ORDER_TYPE_ALL
-            );
+            List<MarketOrderEntity> marketItemPriceData = marketService.getMarketOrders(materialTypeId, regionId);
 
             // Fetch blueprint and volume info
             BlueprintActivity blueprintActivity = blueprintQueryRepository.getBlueprintInfoByProduct(eveType.getTypeId());

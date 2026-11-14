@@ -56,11 +56,6 @@ public final class EveConstants {
 
     // ========== Order Types ==========
     /**
-     * All market orders
-     */
-    public static final String ORDER_TYPE_ALL = "all";
-
-    /**
      * Buy orders only
      */
     public static final String ORDER_TYPE_BUY = "buy";

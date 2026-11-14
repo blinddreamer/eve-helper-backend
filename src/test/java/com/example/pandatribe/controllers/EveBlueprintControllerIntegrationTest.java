@@ -146,9 +146,9 @@ class EveBlueprintControllerIntegrationTest {
     @Test
     @DisplayName("Should handle complete blueprint flow: create and update")
     void shouldHandleCompleteBlueprintFlow() throws Exception {
-        // Step 1: Create a blueprint (assuming "Tritanium" exists in test data)
+        // Step 1: Create a blueprint for a manufacturable item
         BlueprintRequest createRequest = BlueprintRequest.builder()
-                .blueprintName("Tritanium")
+                .blueprintName("Imperial Navy Cenobite")
                 .runs(100)
                 .blueprintMe(10)
                 .system("Jita")
@@ -172,7 +172,7 @@ class EveBlueprintControllerIntegrationTest {
         // Step 2: Update the blueprint
         BlueprintRequest updateRequest = BlueprintRequest.builder()
                 .requestId(createdBlueprint.getId())
-                .blueprintName("Tritanium")
+                .blueprintName("Cenobite I")
                 .runs(200)
                 .build();
 

@@ -1,18 +1,23 @@
 package com.example.pandatribe.configs;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
 public class CorsConfig implements WebMvcConfigurer {
+
+    // Comma-separated; set CORS_ALLOWED_ORIGINS to add e.g. a LAN dev machine
+    @Value("${cors.allowed.origins}")
+    private String[] allowedOrigins;
+
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOrigins("https://eve-helper.com","http://localhost:3000","http://192.168.250.24:3000") // REMOVE "*" or multiple origins if using credentials
+                .allowedOrigins(allowedOrigins) // explicit list: credentials can't be used with "*"
                 .allowedMethods("GET", "POST", "PUT", "DELETE")
-                .allowedHeaders("Authorization", "Content-Type") // Set required headers
-                .exposedHeaders("Set-Cookie") // Expose cookies to frontend
+                .allowedHeaders("Authorization", "Content-Type")
                 .allowCredentials(true);
     }
 }

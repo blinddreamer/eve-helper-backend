@@ -1,5 +1,8 @@
 package com.example.pandatribe.controllers;
 
+import com.example.pandatribe.exceptions.GlobalExceptionHandler;
+import com.example.pandatribe.exceptions.InvalidRequestException;
+import com.example.pandatribe.exceptions.RequestNotFoundException;
 import com.example.pandatribe.logging.JsonLogger;
 import com.example.pandatribe.models.dbmodels.appraisal.AppraisalData;
 import com.example.pandatribe.models.requests.AppraisalRequest;
@@ -54,7 +57,9 @@ class EveAppraisalControllerTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
         objectMapper = new ObjectMapper();
     }
 
@@ -189,11 +194,11 @@ class EveAppraisalControllerTest {
         String appraisalId = "nonexistent123";
 
         when(appraisalService.getAppraisalResult(eq(appraisalId)))
-                .thenThrow(new IllegalArgumentException("Appraisal data not found"));
+                .thenThrow(new RequestNotFoundException(appraisalId));
 
         // Act & Assert
         mockMvc.perform(get("/api/v1/appraisal/{id}", appraisalId))
-                .andExpect(status().is5xxServerError());
+                .andExpect(status().isNotFound());
 
         verify(appraisalService, times(1)).getAppraisalResult(eq(appraisalId));
     }
@@ -232,13 +237,13 @@ class EveAppraisalControllerTest {
         request.setAppraisalRequestEntityList(new ArrayList<>());
 
         when(appraisalService.generateAppraisalResult(any(AppraisalRequest.class)))
-                .thenThrow(new IllegalArgumentException("Appraisal list cannot be empty"));
+                .thenThrow(new InvalidRequestException("Appraisal list cannot be empty"));
 
         // Act & Assert
         mockMvc.perform(post("/api/v1/appraisal")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().is5xxServerError());
+                .andExpect(status().isBadRequest());
 
         verify(appraisalService, times(1)).generateAppraisalResult(any(AppraisalRequest.class));
     }

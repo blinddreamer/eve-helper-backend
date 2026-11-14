@@ -64,10 +64,6 @@ public class OAuthTokenService {
         return tokenRepository.save(oAuthToken);
     }
 
-    public OAuthToken checkTokenExist(String token) {
-        return tokenRepository.findOAuthTokenByAccountIdAndIsPrimary(token, Boolean.TRUE).orElse(null);
-    }
-
     @Transactional
     public OAuthToken getValidAccessToken(Integer id) {
         OAuthToken token = tokenRepository.findOAuthTokenByCharacterId(id)

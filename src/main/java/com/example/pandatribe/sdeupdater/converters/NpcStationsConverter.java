@@ -9,44 +9,30 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Converts npcStations.jsonl to SQL for staStations table
+ * Converts npcStations.jsonl to SQL for the staStations table.
  *
- * IMPORTANT NOTES about new JSON format limitations:
- * 1. Station names NOT included - backs up and restores from old table
- * 2. regionID NOT included - populated via JOIN with mapSolarSystems
- *
- * The new JSON format only provides:
- * - stationID (_key)
- * - solarSystemID
- * - typeID
- * - operation info
- *
- * Missing data is restored/populated via UPDATE statements after INSERT.
+ * The JSON SDE has no station names and no regionID:
+ * - names are copied from the current live staStations table (new stations get NULL)
+ * - regionID is joined from mapSolarSystems_new, so the mapSolarSystems script must run first
+ *   (Flyway runs repeatables in description order: "mapSolarSystems" < "npcStations").
  */
 @Slf4j
 @Component
 public class NpcStationsConverter extends SdeJsonToSqlConverter {
 
     @Override
+    public List<String> tables() {
+        return List.of("staStations");
+    }
+
+    @Override
     protected void writeDropStatement(BufferedWriter writer) throws IOException {
-        // Backup existing station names before dropping (if table exists)
-        writer.write("DROP TABLE IF EXISTS staStations_backup;\n");
-        writer.write("CREATE TABLE staStations_backup (stationID BIGINT, stationName VARCHAR(255));\n\n");
-        writer.write("-- Backup station names if table exists\n");
-        writer.write("SET @table_exists = (SELECT COUNT(*) FROM information_schema.tables \n");
-        writer.write("  WHERE table_schema = DATABASE() AND table_name = 'staStations');\n");
-        writer.write("SET @sql_backup = IF(@table_exists > 0,\n");
-        writer.write("  'INSERT INTO staStations_backup SELECT stationID, stationName FROM staStations WHERE stationName IS NOT NULL',\n");
-        writer.write("  'SELECT 1');\n");
-        writer.write("PREPARE stmt FROM @sql_backup;\n");
-        writer.write("EXECUTE stmt;\n");
-        writer.write("DEALLOCATE PREPARE stmt;\n\n");
-        writer.write("DROP TABLE IF EXISTS staStations;\n\n");
+        writer.write("DROP TABLE IF EXISTS staStations_new;\n\n");
     }
 
     @Override
     protected void writeCreateStatement(BufferedWriter writer) throws IOException {
-        writer.write("CREATE TABLE staStations (\n");
+        writer.write("CREATE TABLE staStations_new (\n");
         writer.write("  stationID BIGINT NOT NULL,\n");
         writer.write("  stationName VARCHAR(255),\n");
         writer.write("  solarSystemID INT,\n");
@@ -58,7 +44,7 @@ public class NpcStationsConverter extends SdeJsonToSqlConverter {
 
     @Override
     protected void writeInsertStatements(BufferedWriter writer, List<JsonNode> records) throws IOException {
-        StringBuilder insert = new StringBuilder("INSERT INTO staStations (stationID, stationName, solarSystemID, regionID, stationTypeID) VALUES\n");
+        StringBuilder insert = new StringBuilder("INSERT INTO staStations_new (stationID, stationName, solarSystemID, regionID, stationTypeID) VALUES\n");
 
         for (int i = 0; i < records.size(); i++) {
             JsonNode station = records.get(i);
@@ -79,7 +65,7 @@ public class NpcStationsConverter extends SdeJsonToSqlConverter {
                 .append(stationID).append(", ")
                 .append(stationName).append(", ")
                 .append(getInt(station, "solarSystemID")).append(", ")
-                .append(sqlNull()).append(", ")  // regionID - will be populated from mapSolarSystems
+                .append(sqlNull()).append(", ")  // regionID - populated from mapSolarSystems_new below
                 .append(getInt(station, "typeID"))
                 .append(")");
         }
@@ -90,19 +76,19 @@ public class NpcStationsConverter extends SdeJsonToSqlConverter {
 
     @Override
     protected void writeIndexStatements(BufferedWriter writer) throws IOException {
-        // Restore station names from backup (new JSON format doesn't include names)
-        writer.write("UPDATE staStations s\n");
-        writer.write("INNER JOIN staStations_backup b ON s.stationID = b.stationID\n");
-        writer.write("SET s.stationName = b.stationName;\n\n");
-        writer.write("DROP TABLE IF EXISTS staStations_backup;\n\n");
+        // Keep names we already have (the live table must exist for the join)
+        writer.write("CREATE TABLE IF NOT EXISTS staStations LIKE staStations_new;\n");
+        writer.write("UPDATE staStations_new s\n");
+        writer.write("INNER JOIN staStations old ON s.stationID = old.stationID\n");
+        writer.write("SET s.stationName = old.stationName\n");
+        writer.write("WHERE s.stationName IS NULL AND old.stationName IS NOT NULL;\n\n");
 
-        // Populate regionID from mapSolarSystems (new JSON format doesn't include regionID)
-        writer.write("UPDATE staStations s\n");
-        writer.write("INNER JOIN mapSolarSystems sys ON s.solarSystemID = sys.solarSystemID\n");
+        writer.write("UPDATE staStations_new s\n");
+        writer.write("INNER JOIN mapSolarSystems_new sys ON s.solarSystemID = sys.solarSystemID\n");
         writer.write("SET s.regionID = sys.regionID;\n\n");
 
-        writer.write("CREATE INDEX idx_stations_name ON staStations(stationName);\n");
-        writer.write("CREATE INDEX idx_stations_system ON staStations(solarSystemID);\n");
-        writer.write("CREATE INDEX idx_stations_region ON staStations(regionID);\n");
+        writer.write("CREATE INDEX idx_stations_name ON staStations_new(stationName);\n");
+        writer.write("CREATE INDEX idx_stations_system ON staStations_new(solarSystemID);\n");
+        writer.write("CREATE INDEX idx_stations_region ON staStations_new(regionID);\n");
     }
 }

@@ -49,7 +49,7 @@ public class UniverseQueryRepository {
         return result.isEmpty() ? null :
                 SystemInfo.builder()
                         .systemId((Integer) result.get(0)[0])
-                        .security((Double) result.get(0)[1])
+                        .security(result.get(0)[1] == null ? null : ((Number) result.get(0)[1]).doubleValue())
                         .build();
     }
 

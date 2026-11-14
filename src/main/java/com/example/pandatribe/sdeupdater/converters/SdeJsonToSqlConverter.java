@@ -28,11 +28,14 @@ public abstract class SdeJsonToSqlConverter {
      * @param outputPath path to write the SQL file
      * @throws IOException if file operations fail
      */
-    public void convertToSql(Path inputPath, Path outputPath) throws IOException {
+    public void convertToSql(Path inputPath, Path outputPath, String header) throws IOException {
         log.info("Converting {} to SQL: {}", inputPath.getFileName(), outputPath.getFileName());
 
         try (BufferedReader reader = Files.newBufferedReader(inputPath);
              BufferedWriter writer = Files.newBufferedWriter(outputPath)) {
+
+            // A unique header changes the file checksum so Flyway re-runs the script every update
+            writer.write("-- " + header + "\n\n");
 
             // Write table drop and create statements
             writeDropStatement(writer);
@@ -75,6 +78,12 @@ public abstract class SdeJsonToSqlConverter {
             log.info("Converted {} records from {} to SQL", totalRecords, inputPath.getFileName());
         }
     }
+
+    /**
+     * Live table names this converter produces. The generated SQL must only write to
+     * "{table}_new" staging tables; JsonSdeUpdater swaps them in atomically afterwards.
+     */
+    public abstract List<String> tables();
 
     /**
      * Writes the DROP TABLE statement

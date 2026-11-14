@@ -175,7 +175,7 @@ class EveAppraisalControllerIntegrationTest {
 
         // Act & Assert
         mockMvc.perform(get("/api/v1/appraisal/{id}", nonExistentId))
-                .andExpect(status().is5xxServerError());
+                .andExpect(status().isNotFound());
     }
 
     @Test

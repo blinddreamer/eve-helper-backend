@@ -10,6 +10,7 @@ import com.example.pandatribe.services.contracts.MarketService;
 import com.example.pandatribe.utils.EncodingUtil;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import com.example.pandatribe.exceptions.RequestNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -151,8 +152,8 @@ class AppraisalServiceTest {
 
         // Act & Assert
         assertThatThrownBy(() -> appraisalService.getAppraisalResult(invalidId))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Appraisal data not found");
+                .isInstanceOf(RequestNotFoundException.class)
+                .hasMessageContaining("not found");
     }
 
     @Test
@@ -430,5 +431,26 @@ class AppraisalServiceTest {
         assertThat(retrieved.getPricePercentage()).isEqualTo(100.0);
         assertThat(retrieved.getAppraisalResult().getAppraisals()).hasSize(2);
         assertThat(retrieved.getCreationDate()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("Unrecognised item names are reported, not silently dropped")
+    void shouldReportUnrecognisedItems() {
+        AppraisalRequestEntity known = new AppraisalRequestEntity();
+        known.setName("Tritanium");
+        known.setQuantity(10);
+        AppraisalRequestEntity unknown = new AppraisalRequestEntity();
+        unknown.setName("Thisisnotanitem");
+        unknown.setQuantity(3);
+
+        AppraisalRequest request = new AppraisalRequest();
+        request.setAppraisalRequestEntityList(List.of(known, unknown));
+
+        String shortenedLink = appraisalService.generateAppraisalResult(request);
+
+        var result = appraisalDataRepository.findById(encodingUtil.decompressUUID(shortenedLink))
+                .orElseThrow().getAppraisalResult();
+        assertThat(result.getAppraisals()).hasSize(1);
+        assertThat(result.getMissingItems()).containsExactly("Thisisnotanitem");
     }
 }

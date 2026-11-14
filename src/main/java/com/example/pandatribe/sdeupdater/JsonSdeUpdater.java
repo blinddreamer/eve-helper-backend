@@ -1,5 +1,6 @@
 package com.example.pandatribe.sdeupdater;
 
+import com.example.pandatribe.configs.CacheConfig;
 import com.example.pandatribe.feign.contracts.EveInteractor;
 import com.example.pandatribe.sdeupdater.converters.*;
 import jakarta.annotation.PostConstruct;
@@ -9,6 +10,7 @@ import org.flywaydb.core.api.configuration.ClassicConfiguration;
 import org.flywaydb.core.api.output.MigrateResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
@@ -18,21 +20,26 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.*;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 /**
- * Service to update the EVE SDE (Static Data Export) from the official JSON format.
- * Downloads the latest SDE ZIP file, extracts JSON files, converts them to SQL,
- * and applies the migrations using Flyway.
+ * Updates the EVE SDE (Static Data Export) from the official JSONL release.
+ *
+ * Downloads the release, converts each JSONL file to a SQL script that fills "{table}_new"
+ * staging tables, runs the scripts with Flyway, and only when every script succeeded swaps all
+ * staging tables in with a single atomic RENAME TABLE. On any failure the staging tables are
+ * dropped and the live tables are left untouched.
  */
 @Slf4j
 @Service
 public class JsonSdeUpdater {
+
+    private static final String STAGING = "_new";
+    private static final String RETIRED = "_old";
 
     @Value("${eve.sde.json.download.url.template:https://developers.eveonline.com/static-data/tranquility/eve-online-static-data-{version}-jsonl.zip}")
     private String sdeDownloadUrlTemplate;
@@ -53,13 +60,14 @@ public class JsonSdeUpdater {
     private DataSource dataSource;
 
     @Autowired(required = false)
-    private com.example.pandatribe.configs.CacheConfig cacheConfig;
+    private CacheConfig cacheConfig;
 
-    // Converter beans
     @Autowired
     private BlueprintsConverter blueprintsConverter;
     @Autowired
     private TypesConverter typesConverter;
+    @Autowired
+    private TypeMaterialsConverter typeMaterialsConverter;
     @Autowired
     private MarketGroupsConverter marketGroupsConverter;
     @Autowired
@@ -71,17 +79,17 @@ public class JsonSdeUpdater {
     @Autowired
     private PlanetSchematicsConverter planetSchematicsConverter;
 
-    // Map of JSON files to converters
-    private final Map<String, SdeJsonToSqlConverter> converterMap = new HashMap<>();
+    // JSONL file name -> converter
+    private final Map<String, SdeJsonToSqlConverter> converterMap = new LinkedHashMap<>();
 
     @PostConstruct
     public void init() {
-        ensureDirectoryExists();
-        ensureFlywayDirectoryExists();
+        createDirectories(Paths.get(tempDir));
+        createDirectories(flywayDir());
 
-        // Map JSON files to their converters
         converterMap.put("blueprints.jsonl", blueprintsConverter);
         converterMap.put("types.jsonl", typesConverter);
+        converterMap.put("typeMaterials.jsonl", typeMaterialsConverter);
         converterMap.put("marketGroups.jsonl", marketGroupsConverter);
         converterMap.put("mapRegions.jsonl", mapRegionsConverter);
         converterMap.put("mapSolarSystems.jsonl", mapSolarSystemsConverter);
@@ -90,53 +98,81 @@ public class JsonSdeUpdater {
     }
 
     /**
-     * Main method to check for updates and process them
+     * Downloads and applies the given SDE build.
+     *
+     * @return true only if the new data is live; false if anything failed (live data untouched)
      */
-    public void checkAndUpdate() {
+    public boolean update(String version) {
+        log.info("Starting SDE update to build {}", version);
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
         try {
-            if (!updateTriggerExists()) {
-                log.debug("No update trigger found, skipping SDE update");
-                return;
-            }
+            dropTables(jdbc, STAGING);
+            dropTables(jdbc, RETIRED);
 
-            log.info("Starting SDE update process (JSON format)");
-
-            downloadSdeZip();
+            downloadSdeZip(version);
             extractSdeZip();
-            convertJsonToSql();
+            convertJsonToSql(version);
             runFlywayMigration();
+            swapTables(jdbc);
             clearStaticDataCaches();
-            clearUpdateTrigger();
-            cleanupTempFiles();
 
-            log.info("SDE update completed successfully");
+            log.info("SDE update to build {} completed successfully", version);
+            sendNotificationSafely("eve", "SDE Update Success", "Now on SDE build " + version, "default");
+            return true;
         } catch (Exception e) {
-            log.error("Error during SDE update process", e);
+            log.error("SDE update to build {} failed, live data left untouched", version, e);
+            try {
+                dropTables(jdbc, STAGING);
+            } catch (Exception cleanup) {
+                log.warn("Could not drop SDE staging tables", cleanup);
+            }
             sendNotificationSafely("eve", "SDE Update Failed",
-                String.format("Error: %s", e.getMessage()), "high");
+                String.format("Build %s: %s", version, e.getMessage()), "high");
+            return false;
+        } finally {
+            deleteFiles(flywayDir(), p -> p.getFileName().toString().startsWith("R__import_"));
+            deleteFiles(Paths.get(tempDir), p -> true);
         }
     }
 
+    private List<String> liveTables() {
+        return converterMap.values().stream()
+            .flatMap(c -> c.tables().stream())
+            .toList();
+    }
+
     /**
-     * Downloads the SDE ZIP file from the official source
+     * Replaces every live table with its staging copy in one atomic RENAME TABLE.
      */
-    private void downloadSdeZip() throws IOException {
-        // Get the server version from the trigger file
-        String serverVersion = readServerVersionFromTrigger();
-        if (serverVersion == null) {
-            throw new IOException("Cannot download SDE: server version not found in trigger file");
+    private void swapTables(JdbcTemplate jdbc) {
+        List<String> tables = liveTables();
+        for (String table : tables) {
+            // RENAME needs every source table to exist (fresh databases may lack some)
+            jdbc.execute("CREATE TABLE IF NOT EXISTS `" + table + "` LIKE `" + table + STAGING + "`");
         }
+        String renames = tables.stream()
+            .map(t -> String.format("`%1$s` TO `%1$s%2$s`, `%1$s%3$s` TO `%1$s`", t, RETIRED, STAGING))
+            .collect(Collectors.joining(", "));
+        jdbc.execute("RENAME TABLE " + renames);
+        log.info("Swapped in {} SDE tables", tables.size());
+        dropTables(jdbc, RETIRED);
+    }
 
-        // Construct the download URL with the server version
-        String downloadUrl = sdeDownloadUrlTemplate.replace("{version}", serverVersion);
+    private void dropTables(JdbcTemplate jdbc, String suffix) {
+        String names = liveTables().stream()
+            .map(t -> "`" + t + suffix + "`")
+            .collect(Collectors.joining(", "));
+        jdbc.execute("DROP TABLE IF EXISTS " + names);
+    }
 
+    private void downloadSdeZip(String version) throws IOException {
+        String downloadUrl = sdeDownloadUrlTemplate.replace("{version}", version);
         Path targetFile = Paths.get(tempDir, "sde.zip");
         Files.createDirectories(targetFile.getParent());
 
-        log.info("Downloading SDE ZIP version {} from: {}", serverVersion, downloadUrl);
+        log.info("Downloading SDE ZIP version {} from: {}", version, downloadUrl);
 
-        URL url = new URL(downloadUrl);
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        HttpURLConnection connection = (HttpURLConnection) new URL(downloadUrl).openConnection();
         connection.setConnectTimeout(60000);
         connection.setReadTimeout(300000); // 5 minutes for large file
         connection.setRequestProperty("User-Agent",
@@ -144,307 +180,134 @@ public class JsonSdeUpdater {
         connection.setRequestProperty("Referer", "https://developers.eveonline.com/resource/resources");
         connection.setRequestProperty("Accept", "application/zip, application/octet-stream, */*");
 
-        try (InputStream in = connection.getInputStream();
-             OutputStream out = Files.newOutputStream(targetFile,
-                 StandardOpenOption.CREATE,
-                 StandardOpenOption.TRUNCATE_EXISTING,
-                 StandardOpenOption.WRITE)) {
-
-            byte[] buffer = new byte[8192];
-            int bytesRead;
-            long totalBytes = 0;
-
-            while ((bytesRead = in.read(buffer)) != -1) {
-                out.write(buffer, 0, bytesRead);
-                totalBytes += bytesRead;
-
-                if (totalBytes % (10 * 1024 * 1024) == 0) { // Log every 10MB
-                    log.debug("Downloaded {} MB", totalBytes / (1024 * 1024));
-                }
-            }
-
-            log.info("Downloaded SDE ZIP: {} MB", totalBytes / (1024 * 1024));
+        try (InputStream in = connection.getInputStream()) {
+            long bytes = Files.copy(in, targetFile, StandardCopyOption.REPLACE_EXISTING);
+            log.info("Downloaded SDE ZIP: {} MB", bytes / (1024 * 1024));
         } finally {
             connection.disconnect();
         }
     }
 
-    /**
-     * Extracts required JSON files from the SDE ZIP
-     */
     private void extractSdeZip() throws IOException {
         Path zipFile = Paths.get(tempDir, "sde.zip");
         Path extractDir = Paths.get(tempDir, "extracted");
         Files.createDirectories(extractDir);
 
-        log.info("Extracting SDE ZIP file");
-
         try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(zipFile))) {
             ZipEntry entry;
             int extractedCount = 0;
-
             while ((entry = zis.getNextEntry()) != null) {
-                String fileName = entry.getName();
-
-                // Only extract files we need
-                if (!fileName.endsWith(".jsonl")) {
-                    continue;
-                }
-
-                // Get just the file name without path
-                String baseName = Paths.get(fileName).getFileName().toString();
-
+                String baseName = Paths.get(entry.getName()).getFileName().toString();
                 if (converterMap.containsKey(baseName)) {
-                    Path targetFile = extractDir.resolve(baseName);
-
-                    try (OutputStream out = Files.newOutputStream(targetFile)) {
-                        byte[] buffer = new byte[8192];
-                        int bytesRead;
-                        while ((bytesRead = zis.read(buffer)) != -1) {
-                            out.write(buffer, 0, bytesRead);
-                        }
-                    }
-
+                    Files.copy(zis, extractDir.resolve(baseName), StandardCopyOption.REPLACE_EXISTING);
                     extractedCount++;
                     log.info("Extracted: {}", baseName);
                 }
-
                 zis.closeEntry();
             }
-
             log.info("Extracted {} JSON files", extractedCount);
         }
 
-        // Delete the ZIP file to save space
         Files.deleteIfExists(zipFile);
     }
 
-    /**
-     * Converts extracted JSON files to SQL migration scripts
-     */
-    private void convertJsonToSql() throws IOException {
+    private void convertJsonToSql(String version) throws IOException {
         Path extractDir = Paths.get(tempDir, "extracted");
-        Path flywayDir = Paths.get(flywayLocations.split(",")[0].replace("filesystem:", "").trim());
+        Path flywayDir = flywayDir();
         Files.createDirectories(flywayDir);
+        deleteFiles(flywayDir, p -> p.getFileName().toString().startsWith("R__import_"));
 
-        log.info("Converting JSON files to SQL");
+        // Unique per run so Flyway treats every script as changed and re-runs all of them
+        String header = "SDE build " + version + ", run " + UUID.randomUUID();
 
-        // Clear old migration files
-        clearOldMigrations(flywayDir);
-
-        int fileCount = 0;
         for (Map.Entry<String, SdeJsonToSqlConverter> entry : converterMap.entrySet()) {
-            String jsonFile = entry.getKey();
-            SdeJsonToSqlConverter converter = entry.getValue();
-
-            Path inputPath = extractDir.resolve(jsonFile);
+            Path inputPath = extractDir.resolve(entry.getKey());
             if (!Files.exists(inputPath)) {
-                log.warn("Expected JSON file not found: {}", jsonFile);
-                continue;
+                // Every converter's staging tables are swapped in, so a missing file is fatal
+                throw new IOException("SDE release is missing " + entry.getKey());
             }
-
-            // Generate SQL file name using Flyway repeatable migration naming
-            String sqlFileName = String.format("R__import_%s.sql",
-                jsonFile.replace(".jsonl", ""));
-            Path outputPath = flywayDir.resolve(sqlFileName);
-
-            converter.convertToSql(inputPath, outputPath);
-            fileCount++;
+            String sqlFileName = String.format("R__import_%s.sql", entry.getKey().replace(".jsonl", ""));
+            entry.getValue().convertToSql(inputPath, flywayDir.resolve(sqlFileName), header);
         }
-
-        log.info("Converted {} JSON files to SQL", fileCount);
+        log.info("Converted {} JSON files to SQL", converterMap.size());
     }
 
-    /**
-     * Runs Flyway migrations to apply SQL scripts to the database
-     */
     private void runFlywayMigration() {
-        log.info("Running Flyway migrations");
+        log.info("Loading SDE staging tables via Flyway");
 
         ClassicConfiguration configuration = new ClassicConfiguration();
         configuration.setDataSource(dataSource);
         configuration.setLocationsAsStrings(flywayLocations.split(","));
         configuration.setTable(flywayTable);
         configuration.setIgnoreMigrationPatterns("*:WSREP_ON");
-
         configuration.setRepeatableSqlMigrationPrefix("R__import");
         configuration.setSqlMigrationSeparator("_");
-
         configuration.setBaselineOnMigrate(true);
         configuration.setValidateOnMigrate(false);
         configuration.setCleanDisabled(true);
         configuration.setValidateMigrationNaming(false);
 
-        Flyway flyway = new Flyway(configuration);
-        MigrateResult result = flyway.migrate();
-
-        if (result.success) {
-            log.info("Flyway applied {} SDE migrations successfully", result.migrationsExecuted);
-            sendNotificationSafely("eve", "SDE Update Success",
-                String.format("Applied %d migrations", result.migrationsExecuted),
-                "default");
-
-            // Clean up migration files after successful application
-            cleanMigrationFiles();
-        } else {
-            log.error("Flyway migration failed");
-            sendNotificationSafely("eve", "SDE Update Failed",
-                String.format("Migration failed: %s", result.getException()),
-                "high");
+        MigrateResult result = new Flyway(configuration).migrate();
+        if (!result.success) {
+            throw new IllegalStateException("Flyway SDE migration failed: " + result.getException());
         }
+        log.info("Flyway applied {} SDE scripts", result.migrationsExecuted);
     }
 
-    /**
-     * Clears old repeatable migration files
-     */
-    private void clearOldMigrations(Path flywayDir) throws IOException {
-        if (!Files.exists(flywayDir)) {
+    private Path flywayDir() {
+        return Paths.get(flywayLocations.split(",")[0].replace("filesystem:", "").trim());
+    }
+
+    private void deleteFiles(Path dir, java.util.function.Predicate<Path> filter) {
+        if (!Files.exists(dir)) {
             return;
         }
-
-        Files.walk(flywayDir)
-            .filter(Files::isRegularFile)
-            .filter(p -> p.getFileName().toString().startsWith("R__import_"))
-            .forEach(p -> {
-                try {
-                    Files.delete(p);
-                    log.debug("Deleted old migration: {}", p.getFileName());
-                } catch (IOException e) {
-                    log.warn("Could not delete old migration file: {}", p, e);
-                }
-            });
-    }
-
-    /**
-     * Cleans up migration files after successful application
-     */
-    private void cleanMigrationFiles() {
-        String primaryLocation = flywayLocations.split(",")[0].replace("filesystem:", "").trim();
-        Path flywayDir = Paths.get(primaryLocation);
-
-        try {
-            Files.walk(flywayDir)
-                .filter(Files::isRegularFile)
-                .filter(p -> p.getFileName().toString().startsWith("R__import_"))
+        try (Stream<Path> paths = Files.walk(dir)) {
+            paths.sorted(Comparator.reverseOrder())
+                .filter(p -> !p.equals(dir) && filter.test(p))
                 .forEach(p -> {
                     try {
-                        Files.delete(p);
-                        log.debug("Cleaned up migration file: {}", p.getFileName());
+                        Files.deleteIfExists(p);
                     } catch (IOException e) {
-                        log.warn("Could not delete migration file: {}", p, e);
+                        log.warn("Could not delete {}", p, e);
                     }
                 });
         } catch (IOException e) {
-            log.warn("Error cleaning migration files", e);
+            log.warn("Error cleaning {}", dir, e);
         }
     }
 
-    /**
-     * Cleans up temporary files and directories
-     */
-    private void cleanupTempFiles() {
+    private void createDirectories(Path dir) {
         try {
-            Path tempDirPath = Paths.get(tempDir);
-            if (Files.exists(tempDirPath)) {
-                Files.walk(tempDirPath)
-                    .sorted(Comparator.reverseOrder())
-                    .filter(path -> !path.equals(tempDirPath))
-                    .forEach(path -> {
-                        try {
-                            Files.deleteIfExists(path);
-                        } catch (IOException e) {
-                            log.warn("Failed to delete temp file: {}", path, e);
-                        }
-                    });
-            }
-            log.debug("Cleaned up temporary files");
+            Files.createDirectories(dir);
         } catch (IOException e) {
-            log.warn("Error during temp files cleanup", e);
+            throw new IllegalStateException("Could not create directory: " + dir, e);
         }
     }
 
-    private void ensureDirectoryExists() {
-        try {
-            Files.createDirectories(Paths.get(tempDir));
-        } catch (IOException e) {
-            throw new RuntimeException("Could not create temp directory: " + tempDir, e);
-        }
-    }
-
-    private void ensureFlywayDirectoryExists() {
-        String locationPath = flywayLocations.split(",")[0]
-            .replace("filesystem:", "")
-            .trim();
-        try {
-            Files.createDirectories(Paths.get(locationPath));
-        } catch (IOException e) {
-            throw new RuntimeException("Could not create Flyway directory: " + locationPath, e);
-        }
-    }
-
-    private boolean updateTriggerExists() {
-        return Files.exists(Paths.get("data/sde_update_trigger.txt"));
-    }
-
-    private String readServerVersionFromTrigger() {
-        try {
-            Path triggerFile = Paths.get("data/sde_update_trigger.txt");
-            if (Files.exists(triggerFile)) {
-                List<String> lines = Files.readAllLines(triggerFile);
-                if (!lines.isEmpty()) {
-                    return lines.get(0).trim();
-                }
-            }
-        } catch (IOException e) {
-            log.warn("Failed to read server version from trigger file", e);
-        }
-        return null;
-    }
-
-    private void clearUpdateTrigger() throws IOException {
-        Files.deleteIfExists(Paths.get("data/sde_update_trigger.txt"));
-        log.debug("Cleared update trigger");
-    }
-
-    /**
-     * Clears static data caches after successful SDE update.
-     * This ensures users see updated data immediately without waiting for cache expiration.
-     */
     private void clearStaticDataCaches() {
-        if (cacheConfig != null) {
-            try {
-                cacheConfig.evictAllStaticDataCaches();
-                log.info("Cleared static data caches (blueprints, regions, stations, systemNames)");
-            } catch (Exception e) {
-                log.warn("Failed to clear static data caches after SDE update", e);
-            }
-        } else {
-            log.debug("CacheConfig not available, skipping cache clear");
+        if (cacheConfig == null) {
+            return;
+        }
+        try {
+            cacheConfig.evictAllStaticDataCaches();
+            cacheConfig.evictCacheCalculator();
+        } catch (Exception e) {
+            log.warn("Failed to clear static data caches after SDE update", e);
         }
     }
 
     /**
-     * Sends a notification safely without interrupting the SDE update process.
-     * If notification fails (e.g., 403 Forbidden), logs the error but continues execution.
-     *
-     * @param topic Notification topic
-     * @param title Notification title
-     * @param message Notification message
-     * @param priority Notification priority
+     * Notification failures (e.g. 403 from ntfy) must never break the update itself.
      */
     private void sendNotificationSafely(String topic, String title, String message, String priority) {
         if (eveInteractor == null) {
-            log.debug("EveInteractor not available, skipping notification");
             return;
         }
-
         try {
             eveInteractor.sendNotification(topic, title, message, priority);
-            log.debug("Notification sent successfully: {}", title);
         } catch (Exception e) {
-            // Log the error but don't throw - notification failure shouldn't stop SDE update
             log.warn("Failed to send notification '{}': {} - {}", title, e.getClass().getSimpleName(), e.getMessage());
-            log.debug("Notification error details", e);
         }
     }
 }

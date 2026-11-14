@@ -19,4 +19,6 @@ public class AppraisalResult {
     BigDecimal estimateTotalSplit;
     Double totalVolume;
     String regionId;
+    // Pasted names that matched no EVE item, so the UI can tell the user instead of dropping them
+    List<String> missingItems;
 }

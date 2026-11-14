@@ -36,9 +36,6 @@ public interface EveApiList {
     @RequestLine("GET /latest/characters/{characterId}/portrait")
     CharPortrait getCharPortrait(@Param("characterId") Integer characterId);
 
-    @RequestLine("GET /latest/markets/{regionId}/orders/?datasource={dataSource}&order_type={orderType}&type_id={typeId}")
-    List<ItemPrice> getMarketData(@Param("regionId") Integer regionId, @QueryMap Map<String,Object> queryParams);
-
     @RequestLine("GET /latest/markets/prices")
     List<MarketPriceData> getMarketPrices();
 

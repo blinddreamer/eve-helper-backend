@@ -73,16 +73,6 @@ public class EveInteractorImpl implements EveInteractor {
         return feign.getRestClient(EveApiList.class, API_ADDRESS).getCharPortrait(characterId);
     }
 
-    @Override
-    public List<ItemPrice> getItemMarketPrice(Integer regionId, String dataSource, String orderType, Integer typeId) {
-        Map<String, Object> queryParams = new HashMap<>();
-        queryParams.put("datasource",dataSource);
-        queryParams.put("order_type",orderType);
-        if(Objects.nonNull(typeId)){
-            queryParams.put("type_id",typeId);
-        }
-        return feign.getRestClient(EveApiList.class,API_ADDRESS).getMarketData(regionId, queryParams);
-    }
 
     public List<MarketPriceData> getMarketPrices(){
         return feign.getRestClient(EveApiList.class,API_ADDRESS).getMarketPrices();

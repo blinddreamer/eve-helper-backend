@@ -19,7 +19,7 @@ public class EvePiController {
 
     @GetMapping("pi")
     public ResponseEntity<?> generatePi(){
-     // Note: Market price fetching is already cached via cacheItemMarketPrice
+     // Prices come from the DB order cache, kept warm by PiMarketWarmupService
      // The PI calculation itself is fast and doesn't need caching
      List<PiMat> result = piDataService.generatePi();
      return ResponseEntity.ok(result);

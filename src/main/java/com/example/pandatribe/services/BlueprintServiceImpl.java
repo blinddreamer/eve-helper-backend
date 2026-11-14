@@ -8,7 +8,7 @@ import com.example.pandatribe.models.dbmodels.industry.BlueprintData;
 import com.example.pandatribe.models.industry.CostIndex;
 import com.example.pandatribe.models.industry.blueprints.BlueprintActivity;
 import com.example.pandatribe.models.industry.blueprints.EveType;
-import com.example.pandatribe.models.market.ItemPrice;
+import com.example.pandatribe.models.dbmodels.market.MarketOrderEntity;
 import com.example.pandatribe.models.requests.BlueprintRequest;
 import com.example.pandatribe.models.requests.MaterialInfo;
 import com.example.pandatribe.models.results.Blueprint;
@@ -63,13 +63,13 @@ public class BlueprintServiceImpl implements BlueprintService {
     @Override
     public BlueprintData getInitialBlueprintData(BlueprintRequest searchDto) {
         BlueprintServiceImpl self = applicationContext.getBean(BlueprintServiceImpl.class);
-        BlueprintResult initialBlueprint = self.getBlueprintData(searchDto);
+        BlueprintResult initialBlueprint = copyOf(self.getBlueprintData(searchDto));
         if (Objects.isNull(initialBlueprint)) {
             throw new BlueprintNotFoundException(searchDto.getBlueprintName());
         }
         return blueprintDataRepository.saveAndFlush(
                 BlueprintData.builder().id(UUID.randomUUID().toString())
-                        .blueprintResult(Collections.singletonList(initialBlueprint))
+                        .blueprintResult(new ArrayList<>(List.of(initialBlueprint))) // mutable: sub-materials get appended
                         .creationDate(LocalDate.now()).build());
     }
 
@@ -162,12 +162,17 @@ public class BlueprintServiceImpl implements BlueprintService {
         );
     }
 
+    /**
+     * Cached per full set of calculation inputs (everything except requestId).
+     * Callers that modify the result must work on {@link #copyOf} — the cached instance is shared.
+     */
     @Cacheable(
         value = "cacheCalculator",
-        key = "#blueprintRequest.blueprintName + '_' + " +
-              "#blueprintRequest.runs + '_' + " +
-              "#blueprintRequest.blueprintMe + '_' + " +
-              "#blueprintRequest.regionId",
+        key = "#blueprintRequest.blueprintName + '|' + #blueprintRequest.runs + '|' + " +
+              "#blueprintRequest.blueprintMe + '|' + #blueprintRequest.system + '|' + " +
+              "#blueprintRequest.facilityTax + '|' + #blueprintRequest.buildingRig + '|' + " +
+              "#blueprintRequest.building + '|' + #blueprintRequest.count + '|' + " +
+              "#blueprintRequest.regionId + '|' + #blueprintRequest.init + '|' + #blueprintRequest.tier",
         unless = "#result == null"
     )
     public BlueprintResult getBlueprintData(BlueprintRequest blueprintRequest) {
@@ -182,14 +187,8 @@ public class BlueprintServiceImpl implements BlueprintService {
         Double facilityTax = Optional.ofNullable(blueprintRequest.getFacilityTax()).orElse(0.0);
         String blueprintName = blueprintRequest.getBlueprintName();
         Integer count = Optional.ofNullable(blueprintRequest.getCount()).orElse(1);
-        Long locationId = Optional.ofNullable(blueprintRequest.getRegionId())
-                .map(s-> s.split("_")[1])
-                .map(Long::parseLong)
-                .orElse(eveDataConfig.getDefaultLocationId());
-        Integer regionId = Optional.ofNullable(blueprintRequest.getRegionId())
-                .map(s-> s.split("_")[0])
-                .map(Integer::parseInt)
-                .orElse(eveDataConfig.getDefaultRegionId());
+        Long locationId = eveDataConfig.resolveLocationId(blueprintRequest.getRegionId());
+        Integer regionId = eveDataConfig.resolveRegionId(blueprintRequest.getRegionId());
         Integer tier = Optional.ofNullable(blueprintRequest.getTier()).orElse(0);
         EveType eveType = repository.findEveTypeByTypeName(blueprintName).stream().findFirst().orElse(null);
         if (Objects.isNull(eveType)) {
@@ -211,12 +210,11 @@ public class BlueprintServiceImpl implements BlueprintService {
                     ? EveConstants.REACTION : EveConstants.MANUFACTURING;
             BigDecimal industryCosts = calculateIndustryTaxes(facilityTax, systemInfo.getSystemId(),
                     materialsList, activity, buildingDiscount, count);
-            List<ItemPrice> itemPriceList = marketService.getItemMarketPrice(eveType.getTypeId(), regionId,
-                    EveConstants.ORDER_TYPE_ALL);
+            List<MarketOrderEntity> orders = marketService.getMarketOrders(eveType.getTypeId(), regionId);
             BigDecimal buyPrice = marketService
-                    .getItemPriceByOrderType(EveConstants.ORDER_TYPE_BUY, itemPriceList, locationId);
+                    .getItemPriceByOrderTypeFromOrders(EveConstants.ORDER_TYPE_BUY, orders, locationId);
             BigDecimal sellPrice = marketService
-                    .getItemPriceByOrderType(EveConstants.ORDER_TYPE_SELL, itemPriceList, locationId);
+                    .getItemPriceByOrderTypeFromOrders(EveConstants.ORDER_TYPE_SELL, orders, locationId);
             return BlueprintResult.builder()
                     .id(eveType.getTypeId())
                     .name(blueprintName)
@@ -313,7 +311,7 @@ public class BlueprintServiceImpl implements BlueprintService {
         List<BlueprintResult> tempList = new ArrayList<>();
         BlueprintServiceImpl self = applicationContext.getBean(BlueprintServiceImpl.class);
         Integer quant = calculateQuantity(blueprintDataResult, subMaterialsRequest.getBlueprintName());
-        BlueprintResult result = self.getBlueprintData(BlueprintRequest.builder()
+        BlueprintResult result = copyOf(self.getBlueprintData(BlueprintRequest.builder()
                 .blueprintName(subMaterialsRequest.getBlueprintName())
                 .runs(quant)
                 .blueprintMe(subMaterialsRequest.getBlueprintMe())
@@ -323,7 +321,11 @@ public class BlueprintServiceImpl implements BlueprintService {
                 .facilityTax(subMaterialsRequest.getFacilityTax())
                 .buildingRig(subMaterialsRequest.getBuildingRig())
                 .building(subMaterialsRequest.getBuilding())
-                .build());
+                .build()));
+        if (result == null) {
+            // Not manufacturable; adding null would break every later recalculation of this request
+            throw new BlueprintNotFoundException(subMaterialsRequest.getBlueprintName());
+        }
         blueprintDataResult.add(result);
         tempList.add(blueprintDataResult.get(0));
         blueprintDataResult.stream().skip(1).forEach(mat -> tempList.add(updateNeededMaterials(blueprintDataResult, mat, initialQuantities)));
@@ -356,7 +358,7 @@ public class BlueprintServiceImpl implements BlueprintService {
         if (quant == 0 || Boolean.FALSE.equals(material.getSelectedForCraft())) {
             return material.withSelectedForCraft(Boolean.FALSE);
         }
-        return self.getBlueprintData(BlueprintRequest.builder()
+        return copyOf(self.getBlueprintData(BlueprintRequest.builder()
                 .blueprintName(material.getName())
                 .runs(quant)
                 .blueprintMe(material.getBlueprintMaterialEfficiency())
@@ -366,6 +368,11 @@ public class BlueprintServiceImpl implements BlueprintService {
                 .buildingRig(material.getRigDiscount())
                 .building(material.getBuildingDiscount())
                 .tier(material.getTier())
-                .build());
+                .build()));
+    }
+
+    /** Shallow copy, so flags/prices set on it don't leak into the shared cached instance. */
+    private static BlueprintResult copyOf(BlueprintResult cached) {
+        return cached == null ? null : cached.toBuilder().build();
     }
 }

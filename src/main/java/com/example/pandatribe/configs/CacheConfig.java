@@ -26,8 +26,6 @@ public class CacheConfig {
     @CacheEvict(cacheNames = "cacheCostIndexes",allEntries = true)
     public void evictCacheCostIndexes(){LOGGER.info("Cache cacheCostIndexes was cleared");}
 
-    @CacheEvict(cacheNames = "cacheItemMarketPrice",allEntries = true)
-    public void evictCacheItemMarketPrice(){LOGGER.info("Cache cacheItemMarketPrice was cleared");}
 
     /**
      * Manual cache eviction methods for static data.
@@ -41,7 +39,6 @@ public class CacheConfig {
     @Scheduled(fixedRate = 900_000) // 15 minutes = 900,000 milliseconds
     public void triggerEvictCacheCalculator(){
         evictCacheCalculator();
-        evictCacheItemMarketPrice();
     }
 
     @Scheduled(cron = "0 0 * * * *") // every hour

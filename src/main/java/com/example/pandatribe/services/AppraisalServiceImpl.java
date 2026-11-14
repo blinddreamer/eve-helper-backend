@@ -3,7 +3,11 @@ package com.example.pandatribe.services;
 import com.example.pandatribe.models.dbmodels.appraisal.AppraisalData;
 import com.example.pandatribe.models.industry.blueprints.EveType;
 import com.example.pandatribe.models.dbmodels.market.MarketOrderEntity;
+import com.example.pandatribe.configs.EveDataConfig;
+import com.example.pandatribe.exceptions.InvalidRequestException;
+import com.example.pandatribe.exceptions.RequestNotFoundException;
 import com.example.pandatribe.models.requests.AppraisalRequest;
+import com.example.pandatribe.models.requests.AppraisalRequestEntity;
 import com.example.pandatribe.models.results.*;
 import com.example.pandatribe.repositories.BlueprintQueryRepository;
 import com.example.pandatribe.repositories.interfaces.AppraisalDataRepository;
@@ -27,8 +31,7 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 public class AppraisalServiceImpl implements AppraisalService {
     private static final Logger LOGGER = LoggerFactory.getLogger(AppraisalServiceImpl.class);
-    public static final Integer REGION_ID = 10000002;
-    public static final Long DEFAULT_LOCATION_ID = Long.parseLong( "60003760");
+    public static final int MAX_APPRAISAL_LINES = 1000;
     private final MarketService marketService;
     private final EveTypesRepository eveTypesRepository;
     private final BlueprintQueryRepository blueprintQueryRepository;
@@ -36,45 +39,39 @@ public class AppraisalServiceImpl implements AppraisalService {
     private final InvTypeMaterialRepository invTypeMaterialRepository;
     private final EveImageService eveImageService;
     private final EncodingUtil encodingUtil;
+    private final EveDataConfig eveDataConfig;
 
     @Override
     public String generateAppraisalResult(AppraisalRequest appraisalRequest) {
-        final Long locationId = Optional.ofNullable(appraisalRequest.getRegionId()).map(s -> s.split("_")[1]).map(Long::parseLong).orElse(DEFAULT_LOCATION_ID);
-        final Integer regionId = Optional.ofNullable(appraisalRequest.getRegionId()).map(s -> s.split("_")[0]).map(Integer::parseInt).orElse(REGION_ID);
+        List<AppraisalRequestEntity> lines = appraisalRequest.getAppraisalRequestEntityList();
+        if (lines == null || lines.isEmpty()) {
+            throw new InvalidRequestException("Appraisal list cannot be empty");
+        }
+        if (lines.size() > MAX_APPRAISAL_LINES) {
+            throw new InvalidRequestException("Appraisals are limited to " + MAX_APPRAISAL_LINES + " lines");
+        }
+        final Long locationId = eveDataConfig.resolveLocationId(appraisalRequest.getRegionId());
+        final Integer regionId = eveDataConfig.resolveRegionId(appraisalRequest.getRegionId());
 
-     List<AppraisalResultEntity> appraisalEntities = appraisalRequest.getAppraisalRequestEntityList().stream().map(appraisal -> {
-            EveType eveType = eveTypesRepository.findEveTypeByTypeName(appraisal.getName()).stream().findFirst().orElse(null);
-            if(Objects.isNull(eveType)){
-                LOGGER.warn("Eve item not found, skipping: '{}'", appraisal.getName());
-                return null;
-            }
-         Double volume = blueprintQueryRepository.getVolume(eveType.getTypeId());
-         List<MarketOrderEntity> orders = marketService.getMarketOrders(eveType.getTypeId(), regionId);
-         BigDecimal buyOrderPrice = marketService.getItemPriceByOrderTypeFromOrders("buy", orders, locationId);
-         BigDecimal sellOrderPrice = marketService.getItemPriceByOrderTypeFromOrders("sell", orders, locationId);
-            return AppraisalResultEntity.builder()
-                    .icon(eveImageService.generateIconLink(eveType.getTypeId(), eveType.getTypeName(), 32))
-                    .quantity(appraisal.getQuantity())
-                    .volume(Objects.nonNull(volume) ? volume : eveType.getVolume())
-                    .item(eveType.getTypeName())
-
-                    .buyOrdersCount(orders.stream()
-                            .filter(o -> Boolean.TRUE.equals(o.getIsBuyOrder()))
-                            .count())
-                    .buyOrderPrice(buyOrderPrice)
-                    .sellOrderPrice(sellOrderPrice)
-                    .splitPrice(buyOrderPrice.add(sellOrderPrice).divide(BigDecimal.valueOf(2)).setScale(0, RoundingMode.CEILING))
-                    .sellOrdersCount(orders.stream()
-                            .filter(o -> Boolean.FALSE.equals(o.getIsBuyOrder()))
-                            .count())
-                    .build();
-                })
-             .filter(Objects::nonNull)
-             .toList();
-
+        // Pasted inventories often repeat the same item; price each distinct item once
+        Map<String, Optional<AppraisalResultEntity>> pricedByName = new LinkedHashMap<>(); // keeps paste order
+        List<AppraisalResultEntity> appraisalEntities = lines.stream()
+                .filter(line -> line != null && line.getName() != null
+                        && line.getQuantity() != null && line.getQuantity() > 0)
+                .map(line -> pricedByName
+                        .computeIfAbsent(line.getName(), name -> priceItem(name, regionId, locationId))
+                        .map(priced -> priced.toBuilder().quantity(line.getQuantity()).build())
+                        .orElse(null))
+                .filter(Objects::nonNull)
+                .toList();
+        List<String> missingItems = pricedByName.entrySet().stream()
+                .filter(e -> e.getValue().isEmpty())
+                .map(Map.Entry::getKey)
+                .toList();
 
         AppraisalResult appraisalResult =  AppraisalResult.builder()
                 .appraisals(appraisalEntities)
+                .missingItems(missingItems)
                 .regionId(appraisalRequest.getRegionId())
                 .estimateTotalBuy(appraisalEntities.stream().map(a -> a.getBuyOrderPrice().multiply(BigDecimal.valueOf(a.getQuantity()))).reduce(BigDecimal::add).orElse(BigDecimal.ZERO))
                 .estimateTotalSell(appraisalEntities.stream().map(a -> a.getSellOrderPrice().multiply(BigDecimal.valueOf(a.getQuantity()))).reduce(BigDecimal::add).orElse(BigDecimal.ZERO))
@@ -94,20 +91,45 @@ public class AppraisalServiceImpl implements AppraisalService {
         return shortenLink;
     }
 
-    public AppraisalData getAppraisalResult(String id) {
-        UUID uuid = encodingUtil.decompressUUID(id);
-        Optional<AppraisalData> appraisalData = appraisalDataRepository.findById(uuid);
-        if(appraisalData.isPresent()){
-            return appraisalData.get();
+    /** Prices one item (quantity left unset); empty if the name isn't a known EVE type. */
+    private Optional<AppraisalResultEntity> priceItem(String name, Integer regionId, Long locationId) {
+        EveType eveType = eveTypesRepository.findEveTypeByTypeName(name).stream().findFirst().orElse(null);
+        if (eveType == null) {
+            LOGGER.warn("Eve item not found, skipping: '{}'", name);
+            return Optional.empty();
         }
-        throw new IllegalArgumentException("Appraisal data not found");
+        Double volume = blueprintQueryRepository.getVolume(eveType.getTypeId());
+        List<MarketOrderEntity> orders = marketService.getMarketOrders(eveType.getTypeId(), regionId);
+        BigDecimal buyOrderPrice = marketService.getItemPriceByOrderTypeFromOrders("buy", orders, locationId);
+        BigDecimal sellOrderPrice = marketService.getItemPriceByOrderTypeFromOrders("sell", orders, locationId);
+        return Optional.of(AppraisalResultEntity.builder()
+                .icon(eveImageService.generateIconLink(eveType.getTypeId(), eveType.getTypeName(), 32))
+                .volume(Objects.nonNull(volume) ? volume : eveType.getVolume())
+                .item(eveType.getTypeName())
+                .buyOrdersCount(orders.stream().filter(o -> Boolean.TRUE.equals(o.getIsBuyOrder())).count())
+                .buyOrderPrice(buyOrderPrice)
+                .sellOrderPrice(sellOrderPrice)
+                // ISK prices have 2 decimals; rounding to whole ISK skewed cheap items (minerals) by ~20%
+                .splitPrice(buyOrderPrice.add(sellOrderPrice).divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP))
+                .sellOrdersCount(orders.stream().filter(o -> Boolean.FALSE.equals(o.getIsBuyOrder())).count())
+                .build());
+    }
+
+    public AppraisalData getAppraisalResult(String id) {
+        UUID uuid;
+        try {
+            uuid = encodingUtil.decompressUUID(id);
+        } catch (IllegalArgumentException e) {
+            throw new RequestNotFoundException(id); // a garbled link is just "not found"
+        }
+        return appraisalDataRepository.findById(uuid).orElseThrow(() -> new RequestNotFoundException(id));
     }
 
     @Override
     public ReprocessResult getReprocessResult(String id, Double efficiency) {
         AppraisalData appraisalData = getAppraisalResult(id);
-        Long locationId = resolveLocationId(appraisalData.getMarket());
-        Integer regionId = resolveRegionId(appraisalData.getMarket());
+        Long locationId = eveDataConfig.resolveLocationId(appraisalData.getMarket());
+        Integer regionId = eveDataConfig.resolveRegionId(appraisalData.getMarket());
 
         // Aggregate yields across all items
         Map<Integer, Long> materialTotals = new HashMap<>();
@@ -165,8 +187,8 @@ public class AppraisalServiceImpl implements AppraisalService {
     @Override
     public CompressResult getCompressResult(String id) {
         AppraisalData appraisalData = getAppraisalResult(id);
-        Long locationId = resolveLocationId(appraisalData.getMarket());
-        Integer regionId = resolveRegionId(appraisalData.getMarket());
+        Long locationId = eveDataConfig.resolveLocationId(appraisalData.getMarket());
+        Integer regionId = eveDataConfig.resolveRegionId(appraisalData.getMarket());
 
         List<CompressEntry> entries = appraisalData.getAppraisalResult().getAppraisals().stream()
                 .filter(Objects::nonNull)
@@ -220,13 +242,5 @@ public class AppraisalServiceImpl implements AppraisalService {
                 .totalCompressedVolume(totalComp)
                 .totalVolumeSaved(totalOrig - totalComp)
                 .build();
-    }
-
-    private Long resolveLocationId(String market) {
-        return Optional.ofNullable(market).map(s -> s.split("_")[1]).map(Long::parseLong).orElse(DEFAULT_LOCATION_ID);
-    }
-
-    private Integer resolveRegionId(String market) {
-        return Optional.ofNullable(market).map(s -> s.split("_")[0]).map(Integer::parseInt).orElse(REGION_ID);
     }
 }
