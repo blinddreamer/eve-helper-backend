@@ -1,0 +1,3 @@
+# spring-webmvc: fixed only in Spring Framework 7 (Spring Boot 4). Remove after the Boot 4 upgrade.
+CVE-2026-47884
+CVE-2026-47890
