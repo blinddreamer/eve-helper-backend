@@ -61,7 +61,9 @@ public class MapRegionsConverter extends SdeJsonToSqlConverter {
             }
 
             // Extract position coordinates
-            String x = sqlNull(), y = sqlNull(), z = sqlNull();
+            String x = sqlNull();
+            String y = sqlNull();
+            String z = sqlNull();
             JsonNode position = region.get("position");
             if (position != null) {
                 x = getDouble(position, "x");

@@ -2,8 +2,16 @@ package com.example.pandatribe.models.dbmodels.appraisal;
 
 import com.example.pandatribe.convertors.JsonToAppraisalResult;
 import com.example.pandatribe.models.results.AppraisalResult;
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.With;
 
 import java.util.Date;
 import java.util.UUID;

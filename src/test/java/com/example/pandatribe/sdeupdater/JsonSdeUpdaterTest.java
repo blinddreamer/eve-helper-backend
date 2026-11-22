@@ -1,6 +1,13 @@
 package com.example.pandatribe.sdeupdater;
 
-import com.example.pandatribe.sdeupdater.converters.*;
+import com.example.pandatribe.sdeupdater.converters.BlueprintsConverter;
+import com.example.pandatribe.sdeupdater.converters.MapRegionsConverter;
+import com.example.pandatribe.sdeupdater.converters.MapSolarSystemsConverter;
+import com.example.pandatribe.sdeupdater.converters.MarketGroupsConverter;
+import com.example.pandatribe.sdeupdater.converters.NpcStationsConverter;
+import com.example.pandatribe.sdeupdater.converters.PlanetSchematicsConverter;
+import com.example.pandatribe.sdeupdater.converters.TypeMaterialsConverter;
+import com.example.pandatribe.sdeupdater.converters.TypesConverter;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;

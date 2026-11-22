@@ -4,15 +4,17 @@ import com.example.pandatribe.models.authentication.TokenResponse;
 import com.example.pandatribe.models.characters.CharPortrait;
 import com.example.pandatribe.models.characters.CharacterLoginInfo;
 import com.example.pandatribe.models.industry.SystemCostIndexes;
-import com.example.pandatribe.models.market.ItemPrice;
 import com.example.pandatribe.models.market.MarketPriceData;
 import com.example.pandatribe.models.market.EsiMarketHistory;
 import com.example.pandatribe.models.universe.UniverseNameEntry;
-import feign.*;
+import feign.Body;
+import feign.Headers;
+import feign.Param;
+import feign.RequestLine;
+import feign.Response;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Map;
 
 
 @Headers({"Accept: application/json",

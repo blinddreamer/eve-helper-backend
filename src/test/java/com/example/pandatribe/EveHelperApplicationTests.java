@@ -10,6 +10,7 @@ class EveHelperApplicationTests {
 
     @Test
     void contextLoads() {
+        // Passes as long as the Spring context starts.
     }
 
 }

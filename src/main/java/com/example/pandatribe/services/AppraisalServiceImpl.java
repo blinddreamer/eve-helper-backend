@@ -8,7 +8,12 @@ import com.example.pandatribe.exceptions.InvalidRequestException;
 import com.example.pandatribe.exceptions.RequestNotFoundException;
 import com.example.pandatribe.models.requests.AppraisalRequest;
 import com.example.pandatribe.models.requests.AppraisalRequestEntity;
-import com.example.pandatribe.models.results.*;
+import com.example.pandatribe.models.results.AppraisalResult;
+import com.example.pandatribe.models.results.AppraisalResultEntity;
+import com.example.pandatribe.models.results.CompressEntry;
+import com.example.pandatribe.models.results.CompressResult;
+import com.example.pandatribe.models.results.ReprocessEntry;
+import com.example.pandatribe.models.results.ReprocessResult;
 import com.example.pandatribe.repositories.BlueprintQueryRepository;
 import com.example.pandatribe.repositories.interfaces.AppraisalDataRepository;
 import com.example.pandatribe.repositories.interfaces.EveTypesRepository;
@@ -120,7 +125,7 @@ public class AppraisalServiceImpl implements AppraisalService {
         try {
             uuid = encodingUtil.decompressUUID(id);
         } catch (IllegalArgumentException e) {
-            throw new RequestNotFoundException(id); // a garbled link is just "not found"
+            throw new RequestNotFoundException(id, e); // a garbled link is just "not found"
         }
         return appraisalDataRepository.findById(uuid).orElseThrow(() -> new RequestNotFoundException(id));
     }
@@ -134,14 +139,20 @@ public class AppraisalServiceImpl implements AppraisalService {
         // Aggregate yields across all items
         Map<Integer, Long> materialTotals = new HashMap<>();
         appraisalData.getAppraisalResult().getAppraisals().forEach(entity -> {
-            if (entity == null) return;
+            if (entity == null) {
+                return;
+            }
             EveType type = eveTypesRepository.findEveTypeByTypeName(entity.getItem())
                     .stream().findFirst().orElse(null);
-            if (type == null) return;
+            if (type == null) {
+                return;
+            }
 
             int portionSize = type.getPortionSize() != null ? type.getPortionSize() : 1;
             long batches = (long) entity.getQuantity() / portionSize;
-            if (batches == 0) return;
+            if (batches == 0) {
+                return;
+            }
 
             invTypeMaterialRepository.findByIdTypeId(type.getTypeId()).forEach(mat -> {
                 long yield = Math.round(batches * mat.getQuantity() * efficiency);
@@ -152,7 +163,9 @@ public class AppraisalServiceImpl implements AppraisalService {
         List<ReprocessEntry> entries = materialTotals.entrySet().stream()
                 .map(e -> {
                     EveType matType = eveTypesRepository.findEveTypeByTypeId(e.getKey()).orElse(null);
-                    if (matType == null) return null;
+                    if (matType == null) {
+                        return null;
+                    }
                     List<MarketOrderEntity> matOrders = marketService.getMarketOrders(e.getKey(), regionId);
                     BigDecimal buy  = marketService.getItemPriceByOrderTypeFromOrders("buy",  matOrders, locationId);
                     BigDecimal sell = marketService.getItemPriceByOrderTypeFromOrders("sell", matOrders, locationId);
@@ -195,16 +208,22 @@ public class AppraisalServiceImpl implements AppraisalService {
                 .map(entity -> {
                     EveType type = eveTypesRepository.findEveTypeByTypeName(entity.getItem())
                             .stream().findFirst().orElse(null);
-                    if (type == null) return null;
+                    if (type == null) {
+                        return null;
+                    }
 
                     EveType compressed = eveTypesRepository
                             .findEveTypeByTypeName("Compressed " + type.getTypeName())
                             .stream().findFirst().orElse(null);
-                    if (compressed == null) return null;
+                    if (compressed == null) {
+                        return null;
+                    }
 
                     int portionSize = type.getPortionSize() != null ? type.getPortionSize() : 100;
                     long compressedQty = (long) entity.getQuantity() / portionSize;
-                    if (compressedQty == 0) return null;
+                    if (compressedQty == 0) {
+                        return null;
+                    }
                     long remainder = (long) entity.getQuantity() % portionSize;
 
                     List<MarketOrderEntity> origPrices = marketService.getMarketOrders(type.getTypeId(), regionId);

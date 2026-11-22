@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Picked up by MegaLinter's JAVA_PMD. PMD's own curated rule set instead of MegaLinter's very strict default. -->
+<ruleset name="quickstart"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+  <description>PMD quickstart rules</description>
+  <rule ref="rulesets/java/quickstart.xml">
+    <!-- SLF4J's {} placeholders already skip formatting when the level is off. -->
+    <exclude name="GuardLogStatement"/>
+    <!-- Flags explicit value= in Spring annotations, which is a style choice. -->
+    <exclude name="UnnecessaryAnnotationValueElement"/>
+  </rule>
+</ruleset>

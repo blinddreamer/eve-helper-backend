@@ -1,6 +1,6 @@
 package com.example.pandatribe.utils;
 
-public class Constant {
+public final class Constant {
     private Constant() {}
     public static final Integer DEFAULT_LOCATION_ID = 60003760;
     public static final Integer DEFAULT_REGION_ID = 10000002;

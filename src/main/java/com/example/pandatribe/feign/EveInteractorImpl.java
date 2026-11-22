@@ -13,7 +13,6 @@ import com.example.pandatribe.models.market.EsiMarketHistory;
 import com.example.pandatribe.models.market.ItemPrice;
 import com.example.pandatribe.models.market.MarketPriceData;
 import com.example.pandatribe.models.market.MarketType;
-import com.example.pandatribe.models.universe.UniverseNameEntry;
 import com.example.pandatribe.utils.AuthTokenUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,7 +26,6 @@ import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -116,9 +114,9 @@ public class EveInteractorImpl implements EveInteractor {
 
         // Resolve names in batches of 1000
         List<MarketType> result = new ArrayList<>();
-        final int BATCH = 1000;
-        for (int i = 0; i < uniqueIds.size(); i += BATCH) {
-            List<Integer> batch = uniqueIds.subList(i, Math.min(i + BATCH, uniqueIds.size()));
+        final int batchSize = 1000;
+        for (int i = 0; i < uniqueIds.size(); i += batchSize) {
+            List<Integer> batch = uniqueIds.subList(i, Math.min(i + batchSize, uniqueIds.size()));
             client.resolveUniverseNames(batch).stream()
                     .filter(n -> "inventory_type".equals(n.getCategory()))
                     .filter(n -> !isJunkMarketItem(n.getName()))
@@ -132,24 +130,25 @@ public class EveInteractorImpl implements EveInteractor {
     }
 
     private static boolean isJunkMarketItem(String name) {
-        if (name == null) return false;
+        if (name == null) {
+            return false;
+        }
         // T2 blueprints — items ending with " II Blueprint" (modules, drones, etc.)
         // and "Advanced * Blueprint" (T2 ammo/charge blueprints)
-        if (name.endsWith(" II Blueprint") || name.endsWith(" II Blueprint Copy")) return true;
-        if (name.startsWith("Advanced ") && (name.endsWith(" Blueprint") || name.endsWith(" Blueprint Copy"))) return true;
-        // Debug / test / QA items
-        if (name.startsWith("DO NOT TRANSLATE")) return true;
-        if (name.startsWith("QA ")) return true;
-        if (name.startsWith("Test Server")) return true;
-        // Event/promotional items
-        if (name.startsWith("ASI 2018")) return true;
-        // Expert Systems (limited-time skill injectors, not regular market)
-        if (name.contains("Expert System")) return true;
-        // Ship Emblems (cosmetic only)
-        if (name.contains("Ship Emblem")) return true;
-        // Planetary industry (non-tradeable PI infrastructure)
-        if (name.contains("Planetary Industry")) return true;
-        return false;
+        return name.endsWith(" II Blueprint") || name.endsWith(" II Blueprint Copy")
+                || name.startsWith("Advanced ") && (name.endsWith(" Blueprint") || name.endsWith(" Blueprint Copy"))
+                // Debug / test / QA items
+                || name.startsWith("DO NOT TRANSLATE")
+                || name.startsWith("QA ")
+                || name.startsWith("Test Server")
+                // Event/promotional items
+                || name.startsWith("ASI 2018")
+                // Expert Systems (limited-time skill injectors, not regular market)
+                || name.contains("Expert System")
+                // Ship Emblems (cosmetic only)
+                || name.contains("Ship Emblem")
+                // Planetary industry (non-tradeable PI infrastructure)
+                || name.contains("Planetary Industry");
     }
 
     private List<Integer> parseTypeIds(Response response) {

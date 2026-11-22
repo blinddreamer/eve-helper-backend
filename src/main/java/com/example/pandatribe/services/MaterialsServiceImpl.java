@@ -1,6 +1,5 @@
 package com.example.pandatribe.services;
 
-import com.example.pandatribe.constants.EveConstants;
 import com.example.pandatribe.exceptions.MaterialNotFoundException;
 import com.example.pandatribe.models.industry.blueprints.BlueprintActivity;
 import com.example.pandatribe.models.industry.blueprints.EveType;

@@ -25,7 +25,7 @@ public class PiDataServiceImpl implements PiDataService {
     private final EveTypesRepository eveTypesRepository;
     private final MarketService marketService;
     private final EveImageService eveImageService;
-    private final HashMap<Integer, String> planetNames = new HashMap<>(Map.ofEntries(
+    private final Map<Integer, String> planetNames = new HashMap<>(Map.ofEntries(
             //Barren
             Map.entry(1, "Barren"),
             //Gas
@@ -43,7 +43,7 @@ public class PiDataServiceImpl implements PiDataService {
             //Temperate
             Map.entry(8,"Temperate")));
 
-    private final HashMap<Integer, List<String>> planetsMaterials = new HashMap<>(Map.ofEntries(
+    private final Map<Integer, List<String>> planetsMaterials = new HashMap<>(Map.ofEntries(
             //Barren
             Map.entry(1, Arrays.asList("Aqueous Liquids", "Base Metals", "Carbon Compounds", "Microorganisms", "Noble Metals")),
             //Gas
@@ -126,7 +126,7 @@ public class PiDataServiceImpl implements PiDataService {
                .toList());
 
        result.addAll(planetNames.entrySet().stream().map(list->
-               PiMat.builder().id(list.getKey()).icon(String.format("/assets/%s.png", list.getValue().toLowerCase())).name(list.getValue()).type(validateType(0)).build()
+               PiMat.builder().id(list.getKey()).icon(String.format("/assets/%s.png", list.getValue().toLowerCase(Locale.ROOT))).name(list.getValue()).type(validateType(0)).build()
        ).toList());
 
        return result;

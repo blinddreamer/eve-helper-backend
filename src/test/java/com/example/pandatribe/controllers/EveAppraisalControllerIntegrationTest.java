@@ -3,7 +3,6 @@ package com.example.pandatribe.controllers;
 import com.example.pandatribe.models.dbmodels.appraisal.AppraisalData;
 import com.example.pandatribe.models.requests.AppraisalRequest;
 import com.example.pandatribe.models.requests.AppraisalRequestEntity;
-import com.example.pandatribe.models.responses.ErrorResponse;
 import com.example.pandatribe.repositories.interfaces.AppraisalDataRepository;
 import com.example.pandatribe.utils.EncodingUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;

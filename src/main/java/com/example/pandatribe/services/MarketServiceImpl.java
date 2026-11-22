@@ -57,7 +57,7 @@ public class MarketServiceImpl implements MarketService {
 
     @Override
     public BigDecimal getItemPriceByOrderTypeFromOrders(String orderType, List<MarketOrderEntity> orders, Long locationId) {
-        if (orderType.equals("buy")) {
+        if ("buy".equals(orderType)) {
             return orders.stream()
                     .filter(o -> Objects.equals(o.getLocationId(), locationId))
                     .filter(o -> Boolean.TRUE.equals(o.getIsBuyOrder()))

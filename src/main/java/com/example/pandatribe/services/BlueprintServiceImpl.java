@@ -219,13 +219,13 @@ public class BlueprintServiceImpl implements BlueprintService {
                     .id(eveType.getTypeId())
                     .name(blueprintName)
                     .totalVolume((Objects.nonNull(volume) ? volume : eveType.getVolume()) * runs * count)
-                    .volume((Objects.nonNull(volume) ? volume : eveType.getVolume()))
+                    .volume(Objects.nonNull(volume) ? volume : eveType.getVolume())
                     .isCreatable(Boolean.TRUE)
                     .quantity(runs * count)
                     .activityId(blueprintActivity.getActivityId())
                     .materialsList(materialsList)
                     .buyCraftPrice(materialsList.stream().map(materialInfo -> materialInfo.getBuyPrice().multiply(BigDecimal.valueOf(materialInfo.getQuantity()))).reduce(BigDecimal.ZERO, BigDecimal::add).add(industryCosts))
-                    .sellCraftPrice((materialsList.stream().map(materialInfo -> materialInfo.getSellPrice().multiply(BigDecimal.valueOf(materialInfo.getQuantity()))).reduce(BigDecimal.ZERO, BigDecimal::add).add(industryCosts)))
+                    .sellCraftPrice(materialsList.stream().map(materialInfo -> materialInfo.getSellPrice().multiply(BigDecimal.valueOf(materialInfo.getQuantity()))).reduce(BigDecimal.ZERO, BigDecimal::add).add(industryCosts))
                     .industryCosts(industryCosts)
                     .craftQuantity(craftQuantity)
                     .tier(tier)
@@ -251,11 +251,7 @@ public class BlueprintServiceImpl implements BlueprintService {
     }
 
     private BlueprintData updateBlueprintData(BlueprintData blueprintData, BlueprintRequest subMaterialsRequest) {
-        Map<String, Integer> initialQuantities = new HashMap<>();
         List<BlueprintResult> originalData = blueprintData.getBlueprintResult();
-        blueprintData.getBlueprintResult().forEach(result ->
-            initialQuantities.put(result.getName(), result.getQuantity())
-        );
         BlueprintResult alreadyExistingData = blueprintData.getBlueprintResult().stream().filter(mat -> mat.getName().equals(subMaterialsRequest.getBlueprintName())).findFirst().orElse(null);
         if (Objects.nonNull(alreadyExistingData)) {
             List<BlueprintResult> tempList = new ArrayList<>();
@@ -264,7 +260,7 @@ public class BlueprintServiceImpl implements BlueprintService {
                 adjustSelectedItems(originalData, alreadyExistingData);
             }
             tempList.add(originalData.get(0));
-            originalData.stream().skip(1).forEach(mat -> tempList.add(updateNeededMaterials(originalData, mat, initialQuantities)));
+            originalData.stream().skip(1).forEach(mat -> tempList.add(updateNeededMaterials(originalData, mat)));
             blueprintData = blueprintData.withBlueprintResult(tempList);
             BlueprintResult initialBlueprint = tempList.get(0);
             BigDecimal buyCraftPrice = recalculateMasterCraftingPrice(blueprintData, true).add(initialBlueprint.getIndustryCosts());
@@ -273,7 +269,7 @@ public class BlueprintServiceImpl implements BlueprintService {
             initialBlueprint.setSellCraftPrice(sellCraftPrice);
             return blueprintData.withBlueprintResult(tempList);
         } else {
-            List<BlueprintResult> newData = updateList(blueprintData.getBlueprintResult(), subMaterialsRequest, initialQuantities);
+            List<BlueprintResult> newData = updateList(blueprintData.getBlueprintResult(), subMaterialsRequest);
             BlueprintResult initialBlueprint = newData.get(0);
             BigDecimal buyCraftPrice = recalculateMasterCraftingPrice(blueprintData, true).add(initialBlueprint.getIndustryCosts());
             BigDecimal sellCraftPrice = recalculateMasterCraftingPrice(blueprintData, false).add(initialBlueprint.getIndustryCosts());
@@ -306,8 +302,7 @@ public class BlueprintServiceImpl implements BlueprintService {
         );
     }
 
-    private List<BlueprintResult> updateList(List<BlueprintResult> blueprintDataResult, BlueprintRequest subMaterialsRequest,
-                                             Map<String, Integer> initialQuantities) {
+    private List<BlueprintResult> updateList(List<BlueprintResult> blueprintDataResult, BlueprintRequest subMaterialsRequest) {
         List<BlueprintResult> tempList = new ArrayList<>();
         BlueprintServiceImpl self = applicationContext.getBean(BlueprintServiceImpl.class);
         Integer quant = calculateQuantity(blueprintDataResult, subMaterialsRequest.getBlueprintName());
@@ -328,7 +323,7 @@ public class BlueprintServiceImpl implements BlueprintService {
         }
         blueprintDataResult.add(result);
         tempList.add(blueprintDataResult.get(0));
-        blueprintDataResult.stream().skip(1).forEach(mat -> tempList.add(updateNeededMaterials(blueprintDataResult, mat, initialQuantities)));
+        blueprintDataResult.stream().skip(1).forEach(mat -> tempList.add(updateNeededMaterials(blueprintDataResult, mat)));
         return tempList;
     }
 
@@ -350,8 +345,7 @@ public class BlueprintServiceImpl implements BlueprintService {
         return blueprintPriceCalculator.calculateQuantity(originalData, blueprintName);
     }
 
-    private BlueprintResult updateNeededMaterials(List<BlueprintResult> originalData, BlueprintResult material,
-                                                  Map<String, Integer> initialQuantities) {
+    private BlueprintResult updateNeededMaterials(List<BlueprintResult> originalData, BlueprintResult material) {
         BlueprintServiceImpl self = applicationContext.getBean(BlueprintServiceImpl.class);
         Integer quant = calculateQuantity(originalData, material.getName());
 

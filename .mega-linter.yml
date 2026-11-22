@@ -1,0 +1,18 @@
+# MegaLinter: https://megalinter.io/latest/config-file/
+# Code quality only: security scanning is handled by Trivy in the Docker build.
+# SQL is not linted: Flyway migrations must never change once applied (checksums).
+# No checkstyle: its default (Sun) rules are mostly Javadoc/line-length/final noise.
+APPLY_FIXES: none
+ENABLE_LINTERS:
+  - ACTION_ACTIONLINT
+  - DOCKERFILE_HADOLINT
+  - COPYPASTE_JSCPD
+  - YAML_YAMLLINT
+  - MARKDOWN_MARKDOWNLINT
+  - JAVA_PMD
+# Tests repeat their setup on purpose; only flag duplication in app code.
+COPYPASTE_JSCPD_FILTER_REGEX_EXCLUDE: (src/test/)
+# Interface/implementation signatures make up most of today's ~4.2%; fail only if it grows past 5%.
+COPYPASTE_JSCPD_ARGUMENTS: --threshold 5
+# Fail on warnings and errors, not hadolint's info-level hints.
+DOCKERFILE_HADOLINT_ARGUMENTS: --failure-threshold warning

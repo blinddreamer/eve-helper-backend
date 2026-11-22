@@ -53,10 +53,7 @@ public class SessionService {
 
     /** @return false if the session is unknown or already expired */
     public boolean extend(String token) {
-        if (token == null) {
-            return false;
-        }
-        return sessionRepository.findByTokenHashAndExpiresAtAfter(hash(token), Instant.now())
+        return token != null && sessionRepository.findByTokenHashAndExpiresAtAfter(hash(token), Instant.now())
                 .map(session -> {
                     session.setExpiresAt(Instant.now().plus(SESSION_TTL));
                     sessionRepository.save(session);

@@ -1,6 +1,8 @@
 package com.example.pandatribe.models.requests;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
 
 @Builder
 @AllArgsConstructor
